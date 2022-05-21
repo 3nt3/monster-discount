@@ -22,14 +22,24 @@ for title in titles:
     if sys.argv[1].lower() in title.text.lower():
         try:
             parent = title.find_element(By.XPATH, '..')
-            percent = parent.find_element(By.CLASS_NAME,
-                                          "cor-offer-price-label").text
+            try:
+                percent = parent.find_element(By.CLASS_NAME,
+                                              "cor-offer-price-label").text
+            except Exception as e:
+                print(e)
+                percent = None
+
             price = parent.find_element(By.CLASS_NAME,
                                         "cor-offer-price-amount").text
-            print(
-                f"{title.text} is discounted to {Fore.YELLOW}{Back.RED}{price}{Style.RESET_ALL} {Back.YELLOW}{Fore.RED}({percent}){Style.RESET_ALL}")
+            if percent:
+                print(
+                    f"{title.text} is discounted to {Fore.YELLOW}{Back.RED}{price}{Style.RESET_ALL} {Back.YELLOW}{Fore.RED}({percent}){Style.RESET_ALL}")
+            else:
+                print(
+                    f"{title.text} is discounted to {Fore.YELLOW}{Back.RED}{price}")
             found = True
         except Exception as e:
+            print(e)
             pass
 
 if not found:
