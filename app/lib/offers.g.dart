@@ -43,8 +43,8 @@ Map<String, dynamic> _$OfferToJson(Offer instance) => <String, dynamic>{
     };
 
 PriceData _$PriceDataFromJson(Map<String, dynamic> json) => PriceData(
-      json['price'] as String,
-      json['regularPrice'] as String,
+      json['price'] as String?,
+      json['regularPrice'] as String?,
     );
 
 Map<String, dynamic> _$PriceDataToJson(PriceData instance) => <String, dynamic>{

@@ -60,8 +60,8 @@ class Offer {
 class PriceData {
   PriceData(this.price, this.regularPrice);
 
-  String price;
-  String regularPrice;
+  String? price;
+  String? regularPrice;
 
   factory PriceData.fromJson(Map<String, dynamic> json) =>
       _$PriceDataFromJson(json);

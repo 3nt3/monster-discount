@@ -1,9 +1,10 @@
 import 'dart:convert';
 
 import 'package:app/market.dart';
-import 'package:app/offers.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+
+import 'offers_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -30,6 +31,7 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Open Sans',
         scaffoldBackgroundColor: const Color(0xFF202124),
         brightness: Brightness.dark,
+        primarySwatch: Colors.green,
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
               color: Colors.white,
@@ -101,10 +103,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 Text(
                     'Monster ⁠Discount — sagt dir wenn Monster discountet ist.',
                     style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 100),
+                const SizedBox(height: 50),
                 Text('REWE DEIN MARKT??',
                     style: Theme.of(context).textTheme.headlineSmall),
-                MyReweWidget(),
+                const MyReweWidget(),
               ],
             ),
           ),
@@ -122,13 +124,17 @@ class MyReweWidget extends StatefulWidget {
 }
 
 class _MyReweWidgetState extends State<MyReweWidget> {
-  List<Market> _selectedMarkets = [];
+  final List<Market> _selectedMarkets = [];
 
   bool _loading = false;
   final _url = "https://mobile-api.rewe.de/mobile/markets/market-search";
   List<Market> _searchResults = [];
+  DateTime lastSearchResult = DateTime.now();
+
+  final TextEditingController _controller = TextEditingController();
 
   _onSearchChange(String s) async {
+    var startedAt = DateTime.now();
     var url = Uri.parse(_url + "?query=" + s);
     debugPrint(url.toString());
     _loading = true;
@@ -137,14 +143,17 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     var response = await http.get(url);
     _loading = false;
 
-    Map<String, dynamic> marketsJson = jsonDecode(response.body);
-    _searchResults = Markets.fromJson(marketsJson).items;
-    setState(() {});
+    if (startedAt.compareTo(lastSearchResult) > 0) {
+      Map<String, dynamic> marketsJson = jsonDecode(response.body);
+      _searchResults = Markets.fromJson(marketsJson).items;
+      lastSearchResult = startedAt;
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Column(
           children: _selectedMarkets
               .map(
@@ -153,8 +162,8 @@ class _MyReweWidgetState extends State<MyReweWidget> {
                     Expanded(child: Text(loc.name)),
                     IconButton(
                       onPressed: () {
-                        setState(() {});
                         _selectedMarkets.remove(loc);
+                        setState(() {});
                       },
                       icon: const Icon(Icons.delete, color: Colors.red),
                     ),
@@ -162,40 +171,67 @@ class _MyReweWidgetState extends State<MyReweWidget> {
                 ),
               )
               .toList()),
+      SizedBox(
+        width: 200,
+        child: ElevatedButton(
+            onPressed: (_selectedMarkets.isEmpty
+                ? null
+                : () {
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => OffersPage(_selectedMarkets
+                                .map<String>((m) => m.id)
+                                .toList())));
+                  }),
+            child: const Text("OKÉ SO?")),
+      ),
       TextFormField(
         keyboardType: TextInputType.number,
         onChanged: _onSearchChange,
         maxLength: 5,
         decoration: InputDecoration(
-          label: Row(
-            children: const [
-              Icon(Icons.search),
-              Text('Suchen (PLZ)'),
-            ],
-          ),
+          prefixIcon: const Icon(Icons.search),
+          prefixIconColor: Colors.white,
+          suffixIcon: _controller.text.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    _controller.clear();
+                  },
+                  icon: const Icon(Icons.clear)),
         ),
       ),
-      SizedBox(height: 20),
       (_loading
-          ? const CircularProgressIndicator()
-          : SizedBox(
-              height: 300,
-              child: Scrollbar(
-                thumbVisibility: true,
-                child: ListView(
-                  children: _searchResults
-                      .map((m) => MyMarketTile(m, () {
-                            if (!_selectedMarkets.contains(m)) {
-                              _selectedMarkets.add(m);
-                            }
-                            setState(() {});
-                          }))
-                      .toList(),
-                  scrollDirection: Axis.vertical,
-                  shrinkWrap: true,
-                ),
-              ),
-            )),
+          ? const Center(child: CircularProgressIndicator())
+          : (_searchResults.isNotEmpty
+              ? SizedBox(
+                  height: 300,
+                  child: Scrollbar(
+                    thumbVisibility: true,
+                    child: ListView(
+                      children: _searchResults
+                          .map((m) => MyMarketTile(m, () {
+                                if (_selectedMarkets.indexWhere(
+                                        (element) => element.id == m.id) ==
+                                    -1) {
+                                  _selectedMarkets.add(m);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text("Bereits ausgewählt")));
+                                }
+                                setState(() {});
+                              }))
+                          .toList(),
+                      scrollDirection: Axis.vertical,
+                      shrinkWrap: true,
+                    ),
+                  ),
+                )
+              : const Center(
+                  child: Text("Keine Ergebnisse"),
+                ))),
     ]);
   }
 }
