@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:app/market.dart';
+import 'package:app/offers.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -74,32 +78,35 @@ class _MyHomePageState extends State<MyHomePage> {
       body: SafeArea(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-          child: Column(
-            // Column is also a layout widget. It takes a list of children and
-            // arranges them vertically. By default, it sizes itself to fit its
-            // children horizontally, and tries to be as tall as its parent.
-            //
-            // Invoke "debug painting" (press "p" in the console, choose the
-            // "Toggle Debug Paint" action from the Flutter Inspector in Android
-            // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-            // to see the wireframe for each widget.
-            //
-            // Column has various properties to control how it sizes itself and
-            // how it positions its children. Here we use mainAxisAlignment to
-            // center the children vertically; the main axis here is the vertical
-            // axis because Columns are vertical (the cross axis would be
-            // horizontal).
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('Monster ⁠Discount — sagt dir wenn Monster discountet ist.',
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 100),
-              Text('REWE DEIN MARKT??',
-                  style: Theme.of(context).textTheme.headlineSmall),
-              MyReweWidget(),
-            ],
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+            child: Column(
+              // Column is also a layout widget. It takes a list of children and
+              // arranges them vertically. By default, it sizes itself to fit its
+              // children horizontally, and tries to be as tall as its parent.
+              //
+              // Invoke "debug painting" (press "p" in the console, choose the
+              // "Toggle Debug Paint" action from the Flutter Inspector in Android
+              // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
+              // to see the wireframe for each widget.
+              //
+              // Column has various properties to control how it sizes itself and
+              // how it positions its children. Here we use mainAxisAlignment to
+              // center the children vertically; the main axis here is the vertical
+              // axis because Columns are vertical (the cross axis would be
+              // horizontal).
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                    'Monster ⁠Discount — sagt dir wenn Monster discountet ist.',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(height: 100),
+                Text('REWE DEIN MARKT??',
+                    style: Theme.of(context).textTheme.headlineSmall),
+                MyReweWidget(),
+              ],
+            ),
           ),
         ),
       ),
@@ -115,12 +122,11 @@ class MyReweWidget extends StatefulWidget {
 }
 
 class _MyReweWidgetState extends State<MyReweWidget> {
-  final List<ReweLocation> _locations = [
-    const ReweLocation('REWE Dieker Straße', 'asdf')
-  ];
+  List<Market> _selectedMarkets = [];
 
   bool _loading = false;
   final _url = "https://mobile-api.rewe.de/mobile/markets/market-search";
+  List<Market> _searchResults = [];
 
   _onSearchChange(String s) async {
     var url = Uri.parse(_url + "?query=" + s);
@@ -130,15 +136,17 @@ class _MyReweWidgetState extends State<MyReweWidget> {
 
     var response = await http.get(url);
     _loading = false;
+
+    Map<String, dynamic> marketsJson = jsonDecode(response.body);
+    _searchResults = Markets.fromJson(marketsJson).items;
     setState(() {});
-    debugPrint(response.body);
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(children: [
       Column(
-          children: _locations
+          children: _selectedMarkets
               .map(
                 (loc) => Row(
                   children: [
@@ -146,7 +154,7 @@ class _MyReweWidgetState extends State<MyReweWidget> {
                     IconButton(
                       onPressed: () {
                         setState(() {});
-                        _locations.remove(loc);
+                        _selectedMarkets.remove(loc);
                       },
                       icon: const Icon(Icons.delete, color: Colors.red),
                     ),
@@ -167,26 +175,61 @@ class _MyReweWidgetState extends State<MyReweWidget> {
           ),
         ),
       ),
+      SizedBox(height: 20),
       (_loading
           ? const CircularProgressIndicator()
-          : ListView(children: [], shrinkWrap: true))
+          : SizedBox(
+              height: 300,
+              child: Scrollbar(
+                thumbVisibility: true,
+                child: ListView(
+                  children: _searchResults
+                      .map((m) => MyMarketTile(m, () {
+                            if (!_selectedMarkets.contains(m)) {
+                              _selectedMarkets.add(m);
+                            }
+                            setState(() {});
+                          }))
+                      .toList(),
+                  scrollDirection: Axis.vertical,
+                  shrinkWrap: true,
+                ),
+              ),
+            )),
     ]);
   }
 }
 
-class MyReweLocationItem extends StatelessWidget {
-  MyReweLocationItem(this.location, {Key? key}) : super(key: key);
+class MyMarketTile extends StatelessWidget {
+  MyMarketTile(this.market, this.onTap, {Key? key}) : super(key: key);
 
-  ReweLocation location;
+  Market market;
+  void Function() onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(child: Text(location.name));
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      InkWell(
+        onTap: onTap,
+        child: Container(
+          width: 10000,
+          decoration: const BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+              color: Color(0xFF2B2C30)),
+          child: Padding(
+            padding: EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(market.name),
+                Text(market.address.street),
+                Text(market.address.city),
+              ],
+            ),
+          ),
+        ),
+      ),
+      SizedBox(height: 10),
+    ]);
   }
-}
-
-class ReweLocation {
-  final String name;
-  final String url;
-  const ReweLocation(this.name, this.url);
 }

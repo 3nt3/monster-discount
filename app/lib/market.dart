@@ -8,19 +8,51 @@ part 'market.g.dart';
 /// An annotation for the code generator to know that this class needs the
 /// JSON serialization logic to be generated.
 @JsonSerializable()
-class User {
-  User(this.name, this.email);
+class Markets {
+  Markets(this.items);
+
+  List<Market> items;
+
+  factory Markets.fromJson(Map<String, dynamic> json) =>
+      _$MarketsFromJson(json);
+  Map<String, dynamic> toJson() => _$MarketsToJson(this);
+}
+
+@JsonSerializable()
+class Market {
+  Market(this.id, this.name, this.address, this.type);
+
+  String id;
+  String name;
+  Address address;
+  MarketType type;
+
+  factory Market.fromJson(Map<String, dynamic> json) => _$MarketFromJson(json);
+
+  Map<String, dynamic> toJson() => _$MarketToJson(this);
+}
+
+@JsonSerializable()
+class Address {
+  Address(this.street, this.postalCode, this.city);
+
+  String street;
+  String postalCode;
+  String city;
+
+  factory Address.fromJson(Map<String, dynamic> json) =>
+      _$AddressFromJson(json);
+  Map<String, dynamic> toJson() => _$AddressToJson(this);
+}
+
+@JsonSerializable()
+class MarketType {
+  MarketType(this.name, this.id);
 
   String name;
-  String email;
+  String id;
 
-  /// A necessary factory constructor for creating a new User instance
-  /// from a map. Pass the map to the generated `_$UserFromJson()` constructor.
-  /// The constructor is named after the source class, in this case, User.
-  factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
-
-  /// `toJson` is the convention for a class to declare support for serialization
-  /// to JSON. The implementation simply calls the private, generated
-  /// helper method `_$UserToJson`.
-  Map<String, dynamic> toJson() => _$UserToJson(this);
+  factory MarketType.fromJson(Map<String, dynamic> json) =>
+      _$MarketTypeFromJson(json);
+  Map<String, dynamic> toJson() => _$MarketTypeToJson(this);
 }
