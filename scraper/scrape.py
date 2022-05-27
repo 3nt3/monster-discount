@@ -6,6 +6,16 @@ from selenium.webdriver.common.by import By
 from colorama import Fore, Back, Style
 import os
 import sys
+import toml
+
+config = None
+
+try:
+    config = toml.load("config.toml")
+except Exception:
+    pass
+
+os.environ['GH_TOKEN'] = config['github_token'] or ''
 
 os.environ['WDM_LOG'] = '0'
 options = Options()
