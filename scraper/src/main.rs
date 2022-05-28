@@ -1,8 +1,11 @@
-use fcm::{Client, MessageBuilder};
+use firebae_cm::{Client, Message, MessageBody, Notification, Receiver};
+use gcp_auth::{AuthenticationManager, CustomServiceAccount};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Executor, Pool, Postgres};
 use std::collections::HashMap;
 use std::env;
+use std::path::PathBuf;
+use std::process::exit;
 
 use serde::Deserialize;
 
@@ -36,7 +39,7 @@ struct PriceData {
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv();
+    dotenv::dotenv().unwrap();
     let database_url = env::var("DATABASE_URL").unwrap();
 
     let pool = PgPoolOptions::new()
@@ -61,14 +64,39 @@ async fn main() {
                 .push((&item.token).to_string());
         }
     }
+
+    // authentication for google things
+    let credentials_path = PathBuf::from(env::var("SERVICE_ACCOUNT").unwrap());
+    let service_account = CustomServiceAccount::from_file(credentials_path).unwrap();
+    let authentication_manager = AuthenticationManager::from(service_account);
+    let scopes = &["https://www.googleapis.com/auth/firebase.messaging"];
+    let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
+
     for (market, tokens) in markets.iter() {
-        let client = reqwest::Client::new();
-        let builder = client
+        let http_client = reqwest::Client::new();
+        let http_builder = http_client
             .get("https://mobile-api.rewe.de/api/v3/all-offers")
             .query(&[("marketCode", market)])
             .header("User-Agent", "Dart/2.16.2 (dart:io)");
-        dbg!(&builder);
-        let resp = builder.send().await.unwrap();
-        dbg!(resp.status());
+        let resp = http_builder.send().await.unwrap();
+
+        for token in tokens {
+            let notification = Notification {
+                title: Some("Some title".to_string()),
+                body: Some("Body".to_string()),
+                image: None,
+            };
+
+            let receiver = Receiver::Token(token.to_string());
+            let mut body = MessageBody::new(receiver);
+            body.notification(notification);
+
+            let message = Message::new("monster-discount", oauth_token.as_str(), body);
+
+            let client = Client::new();
+            dbg!(client.send(message).await);
+        }
+
+        // dbg!(resp.status());
     }
 }

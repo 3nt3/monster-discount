@@ -46,3 +46,6 @@ app.*.map.json
 /android/app/release
 venv
 geckodriver.log
+target
+
+serviceAccount.json
