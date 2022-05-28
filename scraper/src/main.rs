@@ -54,6 +54,14 @@ struct Address {
     city: String,
 }
 
+struct Scrape {
+    id: i32,
+    discounted: bool,
+    created_at: chrono::DateTime<chrono::Utc>,
+    success: bool,
+    price: i32,
+}
+
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().unwrap();
@@ -89,37 +97,57 @@ async fn main() {
     let scopes = &["https://www.googleapis.com/auth/firebase.messaging"];
     let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
 
-    for (market, tokens) in markets.iter() {
-        let http_client = reqwest::Client::new();
-        let http_builder = http_client
-            .get("https://mobile-api.rewe.de/api/v3/all-offers")
-            .query(&[("marketCode", market)])
-            .header("User-Agent", "Dart/2.16.2 (dart:io)");
-        let resp = http_builder.send().await.unwrap();
-        let rewe_data = resp.json::<Response>().await.unwrap();
+    for (market_id, tokens) in markets.into_iter() {
+        let rewe_data_res = get_offers(market_id).await;
+        if let Err(err) = &rewe_data_res {
+            save_scrape(false, false, None, market_id, &pool).await;
+            eprintln!("{}", err);
+            continue;
+        }
 
         let mut is_discounted = false;
-        let mut price: Option<String> = None;
-        'catloop: for cat in rewe_data.categories {
+        let mut price: Option<i32> = None;
+        'catloop: for cat in rewe_data_res.unwrap().categories {
             for offer in cat.offers {
                 if offer.title.to_lowercase().contains("monster") {
                     is_discounted = true;
-                    price = offer.price_data.price;
+                    let price_parsed_opt: Option<f32> =
+                        offer.price_data.price.and_then(|x| x.parse::<f32>().ok());
+                    price = price_parsed_opt.map(|x: f32| ((x * 100.0).round() as i32));
+
                     break 'catloop;
                 }
             }
         }
 
         if !is_discounted {
-            break;
+            println!("not discounted in {} lol", market_id);
+            continue;
         }
 
-        let market_info = get_market_info(*market).await.unwrap();
+        let market_info = get_market_info(market_id).await.unwrap();
+
+        if discounted_last_time(market_id, &pool)
+            .await
+            .unwrap_or(false)
+            == is_discounted
+        {
+            println!(
+                "already notified people about {} hopefully ({})",
+                market_id, is_discounted
+            );
+            continue;
+        }
+
+        save_scrape(is_discounted, true, price, market_id, &pool).await;
 
         for token in tokens {
             let title: String;
             if let Some(some_price) = &price {
-                title = format!("MONSTER IS DISCOUNTED TO {}€!!", some_price);
+                title = format!(
+                    "MONSTER IS DISCOUNTED TO {}€!!",
+                    (*some_price as f32) / 100.0
+                );
             } else {
                 title = "MONSTER IS DISCOUNTED".to_string();
             }
@@ -130,7 +158,7 @@ async fn main() {
                     "At REWE {} in {}",
                     market_info.address.street, market_info.address.city
                 )),
-                image: None,
+                image: Some("https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Flogos-download.com%2Fwp-content%2Fuploads%2F2016%2F09%2FRewe_logo_Dein_Markt.png&f=1&nofb=1".to_string()), // EXTREMELY professional
             };
 
             let receiver = Receiver::Token(token.to_string());
@@ -140,7 +168,14 @@ async fn main() {
             let message = Message::new("monster-discount", oauth_token.as_str(), body);
 
             let client = Client::new();
-            dbg!(client.send(message).await);
+            if let Err(err) = client.send(message).await {
+                eprintln!("error sending push notification: {}", err);
+            } else {
+                println!(
+                    "sent notification about '{} {}' to {}",
+                    market_info.address.street, market_info.address.city, &token
+                );
+            }
         }
 
         // dbg!(resp.status());
@@ -158,4 +193,45 @@ async fn get_market_info(market_id: i32) -> Option<MarketInfo> {
     let resp = http_builder.send().await.unwrap();
 
     Some(resp.json::<MarketInfo>().await.unwrap())
+}
+
+async fn get_offers(market_id: i32) -> Result<Response, reqwest::Error> {
+    let http_client = reqwest::Client::new();
+    let http_builder = http_client
+        .get("https://mobile-api.rewe.de/api/v3/all-offers")
+        .query(&[("marketCode", market_id)])
+        .header("User-Agent", "Dart/2.16.2 (dart:io)");
+    let resp = http_builder.send().await;
+    if let Err(err) = resp {
+        return Err(err);
+    }
+    resp.unwrap().json::<Response>().await
+}
+
+async fn save_scrape(
+    discounted: bool,
+    success: bool,
+    price: Option<i32>,
+    market_id: i32,
+    pool: &Pool<Postgres>,
+) {
+    sqlx::query!(
+        "INSERT INTO scrapes (discounted, success, price, market_id) VALUES ($1, $2, $3, $4)",
+        discounted,
+        success,
+        price,
+        market_id
+    )
+    .execute(pool)
+    .await;
+}
+
+async fn discounted_last_time(market_id: i32, pool: &Pool<Postgres>) -> Result<bool, sqlx::Error> {
+    sqlx::query!(
+        "SELECT discounted FROM scrapes WHERE market_id = $1 ORDER BY created_at DESC LIMIT 1",
+        market_id
+    )
+    .fetch_one(pool)
+    .await
+    .map(|x| x.discounted)
 }
