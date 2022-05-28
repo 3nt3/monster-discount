@@ -1,12 +1,30 @@
 import 'dart:convert';
 
 import 'package:app/market.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'offers_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+import 'offers_page.dart';
+import './api.dart';
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // If you're going to use other Firebase services in the background, such as Firestore,
+  // make sure you call `initializeApp` before using other Firebase services.
+  await Firebase.initializeApp();
+
+  print("Handling a background message: ${message.messageId}");
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const MyApp());
 }
 
@@ -151,6 +169,17 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     }
   }
 
+  _updateMarkets() async {
+    final token = await FirebaseMessaging.instance.getToken();
+
+    final response = await http.post(Uri.parse(API_URL + "/watch-markets"),
+        body: jsonEncode({
+          "markets": _selectedMarkets.map((e) => int.parse(e.id)).toList(),
+          "token": token
+        }));
+    debugPrint(response.statusCode.toString());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -177,6 +206,8 @@ class _MyReweWidgetState extends State<MyReweWidget> {
             onPressed: (_selectedMarkets.isEmpty
                 ? null
                 : () {
+                    _updateMarkets();
+
                     Navigator.push(
                         context,
                         MaterialPageRoute(

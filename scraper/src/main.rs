@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 use std::process::exit;
+use std::str::FromStr;
 
 use serde::Deserialize;
 
@@ -35,6 +36,22 @@ struct Offer {
 struct PriceData {
     price: Option<String>,
     regular_price: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct MarketInfo {
+    id: String,
+    name: String,
+    address: Address,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct Address {
+    street: String,
+    postal_code: String,
+    city: String,
 }
 
 #[tokio::main]
@@ -79,11 +96,40 @@ async fn main() {
             .query(&[("marketCode", market)])
             .header("User-Agent", "Dart/2.16.2 (dart:io)");
         let resp = http_builder.send().await.unwrap();
+        let rewe_data = resp.json::<Response>().await.unwrap();
+
+        let mut is_discounted = false;
+        let mut price: Option<String> = None;
+        'catloop: for cat in rewe_data.categories {
+            for offer in cat.offers {
+                if offer.title.to_lowercase().contains("monster") {
+                    is_discounted = true;
+                    price = offer.price_data.price;
+                    break 'catloop;
+                }
+            }
+        }
+
+        if !is_discounted {
+            break;
+        }
+
+        let market_info = get_market_info(*market).await.unwrap();
 
         for token in tokens {
+            let title: String;
+            if let Some(some_price) = &price {
+                title = format!("MONSTER IS DISCOUNTED TO {}€!!", some_price);
+            } else {
+                title = "MONSTER IS DISCOUNTED".to_string();
+            }
+
             let notification = Notification {
-                title: Some("Some title".to_string()),
-                body: Some("Body".to_string()),
+                title: Some(title),
+                body: Some(format!(
+                    "At REWE {} in {}",
+                    market_info.address.street, market_info.address.city
+                )),
                 image: None,
             };
 
@@ -99,4 +145,17 @@ async fn main() {
 
         // dbg!(resp.status());
     }
+}
+
+async fn get_market_info(market_id: i32) -> Option<MarketInfo> {
+    let http_client = reqwest::Client::new();
+    let http_builder = http_client
+        .get(format!(
+            "https://mobile-api.rewe.de/mobile/markets/markets/{}",
+            market_id
+        ))
+        .header("User-Agent", "Dart/2.16.2 (dart:io)");
+    let resp = http_builder.send().await.unwrap();
+
+    Some(resp.json::<MarketInfo>().await.unwrap())
 }

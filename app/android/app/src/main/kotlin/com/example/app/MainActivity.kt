@@ -1,4 +1,4 @@
-package com.example.app
+package xyz.ente.monsterdiscount
 
 import io.flutter.embedding.android.FlutterActivity
 
