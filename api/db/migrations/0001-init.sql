@@ -18,7 +18,9 @@ create table if not exists scrapes
             primary key,
     discounted boolean                                not null,
     created_at timestamp with time zone default now() not null,
-    success    boolean                  default true  not null
+    success    boolean                  default true  not null,
+    price      integer,
+    market_id  integer
 );
 
 alter table scrapes

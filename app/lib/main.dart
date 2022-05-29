@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
 import 'offers_page.dart';
@@ -16,7 +17,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // make sure you call `initializeApp` before using other Firebase services.
   await Firebase.initializeApp();
 
-  print("Handling a background message: ${message.messageId}");
+  debugPrint("Handling a background message: ${message.messageId}");
 }
 
 Future<void> main() async {
@@ -59,7 +60,7 @@ class MyApp extends StatelessWidget {
               color: Colors.white,
               fontFamily: 'Nunito',
               fontWeight: FontWeight.bold),
-          bodyMedium: TextStyle(color: Colors.white),
+          bodyMedium: TextStyle(color: Colors.white, fontSize: 16),
         ),
       ),
       home: const MyHomePage(),
@@ -118,13 +119,16 @@ class _MyHomePageState extends State<MyHomePage> {
               // horizontal).
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                    'Monster ⁠Discount — sagt dir wenn Monster discountet ist.',
+                Text('sagt dir, wenn Monster discountet ist.',
                     style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 50),
                 Text('REWE DEIN MARKT??',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const MyReweWidget(),
+                const SizedBox(height: 40),
+                Text('SUPERMÄRKTE FÜR GERINGVERDIENENDE',
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const Text("coming soon (nie)")
               ],
             ),
           ),
@@ -142,135 +146,215 @@ class MyReweWidget extends StatefulWidget {
 }
 
 class _MyReweWidgetState extends State<MyReweWidget> {
-  final List<Market> _selectedMarkets = [];
+  List<Market> _selectedMarkets = [];
 
-  bool _loading = false;
+  bool _searchLoading = false;
+  bool _initLoading = true;
   final _url = "https://mobile-api.rewe.de/mobile/markets/market-search";
   List<Market> _searchResults = [];
   DateTime lastSearchResult = DateTime.now();
 
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  _fetchPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final maybeIds = prefs.getStringList("market_ids");
+    debugPrint(maybeIds.toString());
+    if (maybeIds == null) {
+      return;
+    }
+    _selectedMarkets = [];
+    setState(() {});
+
+    for (var marketId in maybeIds) {
+      _selectedMarkets.add(await _fetchMarketById(marketId));
+      setState(() {});
+    }
+
+    _initLoading = false;
+    setState(() {});
+  }
+
+  Future<Market> _fetchMarketById(String marketId) async {
+    final resp = await http.get(Uri.parse(
+        "https://mobile-api.rewe.de/mobile/markets/markets/$marketId"));
+    final marketJson = jsonDecode(resp.body);
+    return Market.fromJson(marketJson);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPrefs();
+  }
 
   _onSearchChange(String s) async {
     var startedAt = DateTime.now();
     var url = Uri.parse(_url + "?query=" + s);
-    debugPrint(url.toString());
-    _loading = true;
+    _searchLoading = true;
     setState(() {});
 
     var response = await http.get(url);
-    _loading = false;
+    _searchLoading = false;
 
     if (startedAt.compareTo(lastSearchResult) > 0) {
       Map<String, dynamic> marketsJson = jsonDecode(response.body);
       _searchResults = Markets.fromJson(marketsJson).items;
       lastSearchResult = startedAt;
+      debugPrint(s);
       setState(() {});
     }
   }
 
   _updateMarkets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final success = await prefs.setStringList(
+        "market_ids", _selectedMarkets.map((e) => e.id).toList());
+    debugPrint(success.toString());
+
     final token = await FirebaseMessaging.instance.getToken();
 
-    final response = await http.post(Uri.parse(API_URL + "/watch-markets"),
+    await http.post(Uri.parse(API_URL + "/watch-markets"),
         body: jsonEncode({
           "markets": _selectedMarkets.map((e) => int.parse(e.id)).toList(),
           "token": token
         }));
-    debugPrint(response.statusCode.toString());
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Column(
-          children: _selectedMarkets
-              .map(
-                (loc) => Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 15),
+          child: (_initLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: _selectedMarkets
+                      .map((loc) => Column(children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: const BoxDecoration(
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(10)),
+                                color: Color(0xFF2B2C30),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(loc.name),
+                                        Text(loc.address.street +
+                                            ", " +
+                                            loc.address.city),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () {
+                                      _selectedMarkets.remove(loc);
+                                      setState(() {});
+                                    },
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10)
+                          ]))
+                      .toList())),
+        ),
+        SizedBox(
+          width: 200,
+          child: ElevatedButton(
+              onPressed: (_selectedMarkets.isEmpty
+                  ? null
+                  : () {
+                      _updateMarkets();
+
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => OffersPage(_selectedMarkets
+                                  .map<String>((m) => m.id)
+                                  .toList())));
+                    }),
+              child: const Text("OKÉ SO?")),
+        ),
+        TextFormField(
+          onChanged: _onSearchChange,
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            prefixIconColor: Colors.white,
+            suffixIcon: _controller.text.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: () {
+                      _controller.clear();
+                    },
+                    icon: const Icon(Icons.clear)),
+          ),
+        ),
+        (_searchResults.isNotEmpty
+            ? Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+                child: Column(
                   children: [
-                    Expanded(child: Text(loc.name)),
-                    IconButton(
-                      onPressed: () {
-                        _selectedMarkets.remove(loc);
-                        setState(() {});
-                      },
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                    ),
+                    Text("${_searchResults.length} Ergebnisse"),
                   ],
                 ),
               )
-              .toList()),
-      SizedBox(
-        width: 200,
-        child: ElevatedButton(
-            onPressed: (_selectedMarkets.isEmpty
-                ? null
-                : () {
-                    _updateMarkets();
-
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => OffersPage(_selectedMarkets
-                                .map<String>((m) => m.id)
-                                .toList())));
-                  }),
-            child: const Text("OKÉ SO?")),
-      ),
-      TextFormField(
-        keyboardType: TextInputType.number,
-        onChanged: _onSearchChange,
-        maxLength: 5,
-        decoration: InputDecoration(
-          prefixIcon: const Icon(Icons.search),
-          prefixIconColor: Colors.white,
-          suffixIcon: _controller.text.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: () {
-                    _controller.clear();
-                  },
-                  icon: const Icon(Icons.clear)),
-        ),
-      ),
-      (_loading
-          ? const Center(child: CircularProgressIndicator())
-          : (_searchResults.isNotEmpty
-              ? SizedBox(
-                  height: 300,
-                  child: Scrollbar(
-                    thumbVisibility: true,
-                    child: ListView(
-                      children: _searchResults
-                          .map((m) => MyMarketTile(m, () {
-                                if (_selectedMarkets.indexWhere(
-                                        (element) => element.id == m.id) ==
-                                    -1) {
-                                  _selectedMarkets.add(m);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text("Bereits ausgewählt")));
-                                }
-                                setState(() {});
-                              }))
-                          .toList(),
-                      scrollDirection: Axis.vertical,
-                      shrinkWrap: true,
+            : const SizedBox.shrink()),
+        (_searchLoading
+            ? const Center(child: CircularProgressIndicator())
+            : (_searchResults.isNotEmpty
+                ? SizedBox(
+                    height: 300,
+                    child: Scrollbar(
+                      thumbVisibility: true,
+                      controller: _scrollController,
+                      child: ListView(
+                        controller: _scrollController,
+                        children: _searchResults
+                            .map((m) => MyMarketTile(m, () {
+                                  if (_selectedMarkets.indexWhere(
+                                          (element) => element.id == m.id) ==
+                                      -1) {
+                                    _selectedMarkets.add(m);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content:
+                                                Text("Bereits ausgewählt")));
+                                  }
+                                  setState(() {});
+                                }))
+                            .toList(),
+                        scrollDirection: Axis.vertical,
+                        shrinkWrap: true,
+                      ),
                     ),
-                  ),
-                )
-              : const Center(
-                  child: Text("Keine Ergebnisse"),
-                ))),
-    ]);
+                  )
+                : const Center(
+                    child: Text("Keine Ergebnisse"),
+                  ))),
+      ],
+    );
   }
 }
 
 class MyMarketTile extends StatelessWidget {
   MyMarketTile(this.market, this.onTap, {Key? key}) : super(key: key);
 
-  Market market;
+  final Market market;
   void Function() onTap;
 
   @override
@@ -296,7 +380,7 @@ class MyMarketTile extends StatelessWidget {
           ),
         ),
       ),
-      SizedBox(height: 10),
+      const SizedBox(height: 10),
     ]);
   }
 }

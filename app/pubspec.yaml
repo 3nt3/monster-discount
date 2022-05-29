@@ -38,6 +38,7 @@ dependencies:
   transparent_image: ^2.0.0
   firebase_core: ^1.17.1
   firebase_messaging: ^11.4.1
+  shared_preferences: ^2.0.15
 
 dev_dependencies:
   flutter_test:
