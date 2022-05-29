@@ -1,12 +1,12 @@
 use firebae_cm::{Client, Message, MessageBody, Notification, Receiver};
 use gcp_auth::{AuthenticationManager, CustomServiceAccount};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgPoolOptions, PgQueryResult};
 use sqlx::{Executor, Pool, Postgres};
 use std::collections::HashMap;
-use std::env;
 use std::path::PathBuf;
 use std::process::exit;
 use std::str::FromStr;
+use std::{env, thread};
 
 use serde::Deserialize;
 
@@ -120,22 +120,14 @@ async fn main() {
             }
         }
 
-        if !is_discounted {
-            println!("not discounted in {} lol", market_id);
-            continue;
-        }
-
         let market_info = get_market_info(market_id).await.unwrap();
 
-        if discounted_last_time(market_id, &pool)
-            .await
-            .unwrap_or(false)
-            == is_discounted
-        {
+        if discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
             println!(
                 "already notified people about {} hopefully ({})",
                 market_id, is_discounted
             );
+            save_scrape(is_discounted, true, price, market_id, &pool).await;
             continue;
         }
 
@@ -143,13 +135,17 @@ async fn main() {
 
         for token in tokens {
             let title: String;
-            if let Some(some_price) = &price {
-                title = format!(
-                    "MONSTER IS DISCOUNTED TO {}€!!",
-                    (*some_price as f32) / 100.0
-                );
+            if !is_discounted {
+                title = "Monster is not discounted anymore 😔".to_string();
             } else {
-                title = "MONSTER IS DISCOUNTED".to_string();
+                if let Some(some_price) = &price {
+                    title = format!(
+                        "MONSTER IS DISCOUNTED TO {}€!! 🎉🎉",
+                        (*some_price as f32) / 100.0
+                    );
+                } else {
+                    title = "MONSTER IS DISCOUNTED 🎉".to_string();
+                }
             }
 
             let notification = Notification {
@@ -169,6 +165,19 @@ async fn main() {
 
             let client = Client::new();
             if let Err(err) = client.send(message).await {
+                // if the device token is invalid because the app was uninstalled (hopefully that's
+                // what it means at least), delete the token relationship to not do useless
+                // requests
+                //
+                // TODO: concurrent requests to firebase - this will *not* scale well when all
+                // notifications are sent one after another
+                if err.to_string().starts_with("NOT_FOUND") {
+                    let result = delete_token(&token, &pool).await;
+                    if let Err(err) = result {
+                        eprintln!("error deleting token from database: {}", err);
+                    }
+                    continue;
+                }
                 eprintln!("error sending push notification: {}", err);
             } else {
                 println!(
@@ -234,4 +243,10 @@ async fn discounted_last_time(market_id: i32, pool: &Pool<Postgres>) -> Result<b
     .fetch_one(pool)
     .await
     .map(|x| x.discounted)
+}
+
+async fn delete_token(token: &str, pool: &Pool<Postgres>) -> Result<PgQueryResult, sqlx::Error> {
+    sqlx::query!("DELETE FROM token__market WHERE token = $1", token)
+        .execute(pool)
+        .await
 }
