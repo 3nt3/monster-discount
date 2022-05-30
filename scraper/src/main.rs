@@ -195,10 +195,23 @@ async fn main() {
 async fn get_market_info(market_id: i32) -> Option<MarketInfo> {
     let http_client = reqwest::Client::new();
     let http_builder = http_client
-        .get(format!(
-            "https://mobile-api.rewe.de/mobile/markets/markets/{}",
-            market_id
-        ))
+        // .get(format!(
+        //     "https://mobile-api.rewe.de/mobile/markets/markets/{}",
+        //     market_id
+        // ))
+        .get("https://app.scrapingbee.com/api/v1")
+        .query(&[
+            ("api_key", env::var("SCRAPINGBEE_API_KEY").unwrap()),
+            (
+                "url",
+                format!(
+                    "https://mobile-api.rewe.de/mobile/markets/markets/{}",
+                    market_id.to_string()
+                ),
+            ),
+            ("render_js", "false".to_string()),
+            ("forward_headers", "true".to_string()),
+        ])
         .header("User-Agent", "Dart/2.16.2 (dart:io)");
     let resp = http_builder.send().await.unwrap();
 
