@@ -66,9 +66,6 @@ struct Scrape {
 async fn main() {
     dotenv::dotenv().unwrap();
 
-    dbg!(get_offers(1940156).await);
-    return;
-
     let database_url = env::var("DATABASE_URL").unwrap();
 
     let pool = PgPoolOptions::new()
