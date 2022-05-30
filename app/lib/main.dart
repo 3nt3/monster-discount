@@ -169,7 +169,11 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     setState(() {});
 
     for (var marketId in maybeIds) {
-      _selectedMarkets.add(await _fetchMarketById(marketId));
+      final market = await _fetchMarketById(marketId);
+      if (market == null) {
+        continue;
+      }
+      _selectedMarkets.add(market);
       setState(() {});
     }
 
@@ -177,11 +181,19 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     setState(() {});
   }
 
-  Future<Market> _fetchMarketById(String marketId) async {
-    final resp = await http.get(Uri.parse(
-        "https://mobile-api.rewe.de/mobile/markets/markets/$marketId"));
-    final marketJson = jsonDecode(resp.body);
-    return Market.fromJson(marketJson);
+  Future<Market?> _fetchMarketById(String marketId) async {
+    try {
+      final resp = await http.get(Uri.parse(
+          "https://mobile-api.rewe.de/mobile/markets/markets/$marketId"));
+
+      final marketJson = jsonDecode(resp.body);
+      return Market.fromJson(marketJson);
+    } catch (e) {
+      debugPrint("ASDF");
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("error querying rewe: ${e.toString()}")));
+    }
+    return null;
   }
 
   @override
@@ -196,15 +208,21 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     _searchLoading = true;
     setState(() {});
 
-    var response = await http.get(url);
-    _searchLoading = false;
+    try {
+      var response = await http.get(url);
+      _searchLoading = false;
 
-    if (startedAt.compareTo(lastSearchResult) > 0) {
-      Map<String, dynamic> marketsJson = jsonDecode(response.body);
-      _searchResults = Markets.fromJson(marketsJson).items;
-      lastSearchResult = startedAt;
-      debugPrint(s);
-      setState(() {});
+      if (startedAt.compareTo(lastSearchResult) > 0) {
+        Map<String, dynamic> marketsJson = jsonDecode(response.body);
+        _searchResults = Markets.fromJson(marketsJson).items;
+        lastSearchResult = startedAt;
+        debugPrint(s);
+        setState(() {});
+      }
+    } catch (e) {
+      _searchLoading = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("error querying rewe: ${e.toString()}")));
     }
   }
 
