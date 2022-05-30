@@ -65,6 +65,10 @@ struct Scrape {
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().unwrap();
+
+    dbg!(get_offers(1940156).await);
+    return;
+
     let database_url = env::var("DATABASE_URL").unwrap();
 
     let pool = PgPoolOptions::new()
@@ -207,9 +211,21 @@ async fn get_market_info(market_id: i32) -> Option<MarketInfo> {
 async fn get_offers(market_id: i32) -> Result<Response, reqwest::Error> {
     let http_client = reqwest::Client::new();
     let http_builder = http_client
-        .get("https://mobile-api.rewe.de/api/v3/all-offers")
-        .query(&[("marketCode", market_id)])
-        .header("User-Agent", "Dart/2.16.2 (dart:io)");
+        // .get("https://mobile-api.rewe.de/api/v3/all-offers")
+        .get("https://app.scrapingbee.com/api/v1")
+        .query(&[
+            ("api_key", env::var("SCRAPINGBEE_API_KEY").unwrap()),
+            (
+                "url",
+                format!(
+                    "https://mobile-api.rewe.de/api/v3/all-offers?marketCode={}",
+                    market_id.to_string()
+                ),
+            ),
+            ("render_js", "false".to_string()),
+            ("forward_headers", "true".to_string()),
+        ])
+        .header("Spb-User-Agent", "Dart/2.16.2 (dart:io)");
     let resp = http_builder.send().await;
     if let Err(err) = resp {
         return Err(err);
