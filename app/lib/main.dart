@@ -149,7 +149,7 @@ class _MyReweWidgetState extends State<MyReweWidget> {
   List<Market> _selectedMarkets = [];
 
   bool _searchLoading = false;
-  bool _initLoading = true;
+  bool _initLoading = false;
   final _url = "https://mobile-api.rewe.de/mobile/markets/market-search";
   List<Market> _searchResults = [];
   DateTime lastSearchResult = DateTime.now();
@@ -165,6 +165,7 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     if (maybeIds == null) {
       return;
     }
+    _initLoading = true;
     _selectedMarkets = [];
     setState(() {});
 
@@ -176,6 +177,12 @@ class _MyReweWidgetState extends State<MyReweWidget> {
       _selectedMarkets.add(market);
       setState(() {});
     }
+
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => OffersPage(
+                _selectedMarkets.map<String>((m) => m.id).toList())));
 
     _initLoading = false;
     setState(() {});
@@ -370,10 +377,10 @@ class _MyReweWidgetState extends State<MyReweWidget> {
 }
 
 class MyMarketTile extends StatelessWidget {
-  MyMarketTile(this.market, this.onTap, {Key? key}) : super(key: key);
+  const MyMarketTile(this.market, this.onTap, {Key? key}) : super(key: key);
 
   final Market market;
-  void Function() onTap;
+  final void Function() onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +393,7 @@ class MyMarketTile extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(10)),
               color: Color(0xFF2B2C30)),
           child: Padding(
-            padding: EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

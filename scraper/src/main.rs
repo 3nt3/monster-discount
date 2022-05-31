@@ -1,66 +1,14 @@
 use firebae_cm::{Client, Message, MessageBody, Notification, Receiver};
 use gcp_auth::{AuthenticationManager, CustomServiceAccount};
-use sqlx::postgres::{PgPoolOptions, PgQueryResult};
-use sqlx::{Executor, Pool, Postgres};
 use std::collections::HashMap;
+use std::env;
 use std::path::PathBuf;
-use std::process::exit;
-use std::str::FromStr;
-use std::{env, thread};
 
-use serde::Deserialize;
+use sqlx::postgres::PgPoolOptions;
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Response {
-    categories: Vec<Category>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Category {
-    title: String,
-    offers: Vec<Offer>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Offer {
-    title: String,
-    subtitle: String,
-    price_data: PriceData,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct PriceData {
-    price: Option<String>,
-    regular_price: Option<String>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct MarketInfo {
-    id: String,
-    name: String,
-    address: Address,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct Address {
-    street: String,
-    postal_code: String,
-    city: String,
-}
-
-struct Scrape {
-    id: i32,
-    discounted: bool,
-    created_at: chrono::DateTime<chrono::Utc>,
-    success: bool,
-    price: i32,
-}
+mod db;
+mod models;
+mod rewe_api;
 
 #[tokio::main]
 async fn main() {
@@ -99,9 +47,9 @@ async fn main() {
     let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
 
     for (market_id, tokens) in markets.into_iter() {
-        let rewe_data_res = get_offers(market_id).await;
+        let rewe_data_res = rewe_api::get_offers(market_id).await;
         if let Err(err) = &rewe_data_res {
-            save_scrape(false, false, None, market_id, &pool).await;
+            db::save_scrape(false, false, None, market_id, &pool).await;
             eprintln!("{}", err);
             continue;
         }
@@ -121,18 +69,18 @@ async fn main() {
             }
         }
 
-        let market_info = get_market_info(market_id).await.unwrap();
+        let market_info = rewe_api::get_market_info(market_id).await.unwrap();
 
-        if discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
+        if db::discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
             println!(
                 "already notified people about {} hopefully ({})",
                 market_id, is_discounted
             );
-            save_scrape(is_discounted, true, price, market_id, &pool).await;
+            db::save_scrape(is_discounted, true, price, market_id, &pool).await;
             continue;
         }
 
-        save_scrape(is_discounted, true, price, market_id, &pool).await;
+        db::save_scrape(is_discounted, true, price, market_id, &pool).await;
 
         for token in tokens {
             let title: String;
@@ -173,7 +121,7 @@ async fn main() {
                 // TODO: concurrent requests to firebase - this will *not* scale well when all
                 // notifications are sent one after another
                 if err.to_string().starts_with("NOT_FOUND") {
-                    let result = delete_token(&token, &pool).await;
+                    let result = db::delete_token(&token, &pool).await;
                     if let Err(err) = result {
                         eprintln!("error deleting token from database: {}", err);
                     }
@@ -190,89 +138,4 @@ async fn main() {
 
         // dbg!(resp.status());
     }
-}
-
-async fn get_market_info(market_id: i32) -> Option<MarketInfo> {
-    let http_client = reqwest::Client::new();
-    let http_builder = http_client
-        // .get(format!(
-        //     "https://mobile-api.rewe.de/mobile/markets/markets/{}",
-        //     market_id
-        // ))
-        .get("https://app.scrapingbee.com/api/v1")
-        .query(&[
-            ("api_key", env::var("SCRAPINGBEE_API_KEY").unwrap()),
-            (
-                "url",
-                format!(
-                    "https://mobile-api.rewe.de/mobile/markets/markets/{}",
-                    market_id.to_string()
-                ),
-            ),
-            ("render_js", "false".to_string()),
-            ("forward_headers", "true".to_string()),
-        ])
-        .header("User-Agent", "Dart/2.16.2 (dart:io)");
-    let resp = http_builder.send().await.unwrap();
-
-    Some(resp.json::<MarketInfo>().await.unwrap())
-}
-
-async fn get_offers(market_id: i32) -> Result<Response, reqwest::Error> {
-    let http_client = reqwest::Client::new();
-    let http_builder = http_client
-        // .get("https://mobile-api.rewe.de/api/v3/all-offers")
-        .get("https://app.scrapingbee.com/api/v1")
-        .query(&[
-            ("api_key", env::var("SCRAPINGBEE_API_KEY").unwrap()),
-            (
-                "url",
-                format!(
-                    "https://mobile-api.rewe.de/api/v3/all-offers?marketCode={}",
-                    market_id.to_string()
-                ),
-            ),
-            ("render_js", "false".to_string()),
-            ("forward_headers", "true".to_string()),
-        ])
-        .header("Spb-User-Agent", "Dart/2.16.2 (dart:io)");
-    let resp = http_builder.send().await;
-    if let Err(err) = resp {
-        return Err(err);
-    }
-    resp.unwrap().json::<Response>().await
-}
-
-async fn save_scrape(
-    discounted: bool,
-    success: bool,
-    price: Option<i32>,
-    market_id: i32,
-    pool: &Pool<Postgres>,
-) {
-    sqlx::query!(
-        "INSERT INTO scrapes (discounted, success, price, market_id) VALUES ($1, $2, $3, $4)",
-        discounted,
-        success,
-        price,
-        market_id
-    )
-    .execute(pool)
-    .await;
-}
-
-async fn discounted_last_time(market_id: i32, pool: &Pool<Postgres>) -> Result<bool, sqlx::Error> {
-    sqlx::query!(
-        "SELECT discounted FROM scrapes WHERE market_id = $1 ORDER BY created_at DESC LIMIT 1",
-        market_id
-    )
-    .fetch_one(pool)
-    .await
-    .map(|x| x.discounted)
-}
-
-async fn delete_token(token: &str, pool: &Pool<Postgres>) -> Result<PgQueryResult, sqlx::Error> {
-    sqlx::query!("DELETE FROM token__market WHERE token = $1", token)
-        .execute(pool)
-        .await
 }
