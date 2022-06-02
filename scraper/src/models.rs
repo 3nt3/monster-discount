@@ -51,3 +51,9 @@ pub struct Scrape {
     pub success: bool,
     pub price: i32,
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct MarketSearchResponse {
+    pub items: Vec<MarketInfo>,
+}
