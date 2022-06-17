@@ -9,15 +9,12 @@ use sqlx::postgres::PgPoolOptions;
 mod db;
 mod models;
 mod rewe_api;
-mod telegram;
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().unwrap();
 
     let database_url = env::var("DATABASE_URL").unwrap();
-
-    telegram::run().await;
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
