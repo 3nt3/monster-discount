@@ -57,3 +57,23 @@ pub struct Scrape {
 pub struct MarketSearchResponse {
     pub items: Vec<MarketInfo>,
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductResponse {
+    pub product: Product,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Product {
+    pub title: String,
+    pub raw_values: RawValues,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RawValues {
+    pub current_retail_price: i32,
+    pub regular_price: i32,
+}

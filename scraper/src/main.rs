@@ -54,8 +54,13 @@ async fn main() {
             continue;
         }
 
+        let product = rewe_api::get_current_price().await;
+        let mut price: Option<i32> = product
+            .map(|x| x.product.raw_values.current_retail_price)
+            .ok();
+
+        // this is redundant
         let mut is_discounted = false;
-        let mut price: Option<i32> = None;
         'catloop: for cat in rewe_data_res.unwrap().categories {
             for offer in cat.offers {
                 if offer.title.to_lowercase().contains("monster") {
@@ -73,8 +78,10 @@ async fn main() {
 
         if db::discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
             println!(
-                "already notified people about {} hopefully ({})",
-                market_id, is_discounted
+                "already notified people about {} hopefully ({}€, discounted: {})",
+                market_id,
+                price.map(|x| (x as f32) / 100.).unwrap_or(0.),
+                is_discounted
             );
             db::save_scrape(is_discounted, true, price, market_id, &pool).await;
             continue;

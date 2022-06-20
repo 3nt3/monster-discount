@@ -1,4 +1,4 @@
-use crate::models;
+use crate::models::{self, ProductResponse};
 
 pub async fn get_market_info(market_id: i32) -> Option<models::MarketInfo> {
     let http_client = reqwest::Client::new();
@@ -40,4 +40,17 @@ pub async fn market_search(query: &str) -> Result<Vec<models::MarketInfo>, reqwe
         .json::<models::MarketSearchResponse>()
         .await
         .map(|x| x.items)
+}
+
+pub async fn get_current_price() -> Result<ProductResponse, reqwest::Error> {
+    let http_client = reqwest::Client::new();
+    let http_builder = http_client
+        .get("https://mobile-api.rewe.de/mobile/products/13-5060337500401-f2bf8a20-3ff3-4fbc-9cea-984edf862b0f")
+        .header("User-Agent", "Dart/2.16.2 (dart:io)");
+    let resp = http_builder.send().await;
+    if let Err(err) = resp {
+        return Err(err);
+    }
+
+    resp.unwrap().json::<models::ProductResponse>().await
 }
