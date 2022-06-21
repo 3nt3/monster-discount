@@ -44,7 +44,7 @@
     {
       "datasource": {
         "type": "postgres",
-        "uid": "FlrbdW3nz"
+        "uid": "nS9pOn37z"
       },
       "fieldConfig": {
         "defaults": {
@@ -96,7 +96,7 @@
       },
       "gridPos": {
         "h": 17,
-        "w": 9,
+        "w": 12,
         "x": 0,
         "y": 1
       },
@@ -178,12 +178,12 @@
     {
       "datasource": {
         "type": "postgres",
-        "uid": "FlrbdW3nz"
+        "uid": "nS9pOn37z"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "continuous-RdYlGr"
           },
           "mappings": [],
           "thresholds": {
@@ -198,17 +198,18 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "currencyEUR"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 5,
-        "x": 9,
+        "h": 17,
+        "w": 7,
+        "x": 12,
         "y": 1
       },
-      "id": 4,
+      "id": 12,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -230,34 +231,41 @@
             "type": "postgres",
             "uid": "FlrbdW3nz"
           },
-          "format": "table",
+          "format": "time_series",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  count(1)\nFROM markets",
+          "rawSql": "SELECT\n  created_at AS \"time\",\n  price / 100.0\nFROM scrapes\nWHERE\n  $__timeFilter(created_at)\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                  "value"
+                  "price"
                 ],
                 "type": "column"
               }
             ]
           ],
-          "table": "markets",
-          "timeColumn": "time",
-          "where": []
+          "table": "scrapes",
+          "timeColumn": "created_at",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
         }
       ],
-      "title": "Number of markets to scrape",
+      "title": "Current Price",
       "type": "stat"
     },
     {
       "datasource": {
         "type": "postgres",
-        "uid": "FlrbdW3nz"
+        "uid": "nS9pOn37z"
       },
       "fieldConfig": {
         "defaults": {
@@ -281,8 +289,8 @@
       "gridPos": {
         "h": 9,
         "w": 5,
-        "x": 9,
-        "y": 9
+        "x": 19,
+        "y": 1
       },
       "id": 6,
       "options": {
@@ -338,7 +346,86 @@
     {
       "datasource": {
         "type": "postgres",
-        "uid": "FlrbdW3nz"
+        "uid": "nS9pOn37z"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 5,
+        "x": 19,
+        "y": 10
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "FlrbdW3nz"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  count(1)\nFROM markets",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "table": "markets",
+          "timeColumn": "time",
+          "where": []
+        }
+      ],
+      "title": "Number of markets to scrape",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "nS9pOn37z"
       },
       "fieldConfig": {
         "defaults": {
@@ -388,7 +475,7 @@
       },
       "gridPos": {
         "h": 17,
-        "w": 7,
+        "w": 12,
         "x": 0,
         "y": 18
       },
@@ -454,12 +541,12 @@
     {
       "datasource": {
         "type": "postgres",
-        "uid": "FlrbdW3nz"
+        "uid": "nS9pOn37z"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "continuous-GrYlRd"
           },
           "mappings": [],
           "thresholds": {
@@ -468,24 +555,20 @@
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "currencyEUR"
+          "unit": "bool_yes_no"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 17,
-        "w": 7,
-        "x": 7,
+        "w": 12,
+        "x": 12,
         "y": 18
       },
-      "id": 12,
+      "id": 14,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -505,19 +588,19 @@
         {
           "datasource": {
             "type": "postgres",
-            "uid": "FlrbdW3nz"
+            "uid": "nS9pOn37z"
           },
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  created_at AS \"time\",\n  price / 100.0\nFROM scrapes\nWHERE\n  $__timeFilter(created_at)\nORDER BY 1",
+          "rawQuery": false,
+          "rawSql": "SELECT\n  created_at AS \"time\",\n  success::integer\nFROM scrapes\nWHERE\n  $__timeFilter(created_at)\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                  "price"
+                  "success::integer"
                 ],
                 "type": "column"
               }
@@ -535,7 +618,7 @@
           ]
         }
       ],
-      "title": "Current Price",
+      "title": "scraping successful",
       "type": "stat"
     }
   ],
@@ -553,6 +636,6 @@
   "timezone": "",
   "title": "REWE Monster notifications",
   "uid": "2OnTKWqnz",
-  "version": 4,
+  "version": 2,
   "weekStart": ""
 }
