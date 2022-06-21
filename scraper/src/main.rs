@@ -6,13 +6,17 @@ use std::path::PathBuf;
 
 use sqlx::postgres::PgPoolOptions;
 
+mod aldi;
 mod db;
 mod models;
-mod rewe_api;
+mod rewe;
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().unwrap();
+
+    dbg!(aldi::api::get_current_price().await);
+    return;
 
     let database_url = env::var("DATABASE_URL").unwrap();
 
@@ -47,14 +51,14 @@ async fn main() {
     let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
 
     for (market_id, tokens) in markets.into_iter() {
-        let rewe_data_res = rewe_api::get_offers(market_id).await;
+        let rewe_data_res = rewe::api::get_offers(market_id).await;
         if let Err(err) = &rewe_data_res {
             db::save_scrape(false, false, None, market_id, &pool).await;
             eprintln!("{}", err);
             continue;
         }
 
-        let product = rewe_api::get_current_price().await;
+        let product = rewe::api::get_current_price().await;
         let mut price: Option<i32> = product
             .map(|x| x.product.raw_values.current_retail_price)
             .ok();
@@ -74,7 +78,7 @@ async fn main() {
             }
         }
 
-        let market_info = rewe_api::get_market_info(market_id).await.unwrap();
+        let market_info = rewe::api::get_market_info(market_id).await.unwrap();
 
         if db::discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
             println!(
