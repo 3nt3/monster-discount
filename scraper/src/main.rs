@@ -15,9 +15,6 @@ mod rewe;
 async fn main() {
     dotenv::dotenv().unwrap();
 
-    dbg!(aldi::api::get_current_price().await);
-    return;
-
     let database_url = env::var("DATABASE_URL").unwrap();
 
     let pool = PgPoolOptions::new()
@@ -50,10 +47,19 @@ async fn main() {
     let scopes = &["https://www.googleapis.com/auth/firebase.messaging"];
     let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
 
+    // rewe things
     for (market_id, tokens) in markets.into_iter() {
         let rewe_data_res = rewe::api::get_offers(market_id).await;
         if let Err(err) = &rewe_data_res {
-            db::save_scrape(false, false, None, market_id, &pool).await;
+            db::save_scrape(
+                false,
+                false,
+                None,
+                market_id.to_string(),
+                models::Store::Rewe,
+                &pool,
+            )
+            .await;
             eprintln!("{}", err);
             continue;
         }
@@ -87,11 +93,27 @@ async fn main() {
                 price.map(|x| (x as f32) / 100.).unwrap_or(0.),
                 is_discounted
             );
-            db::save_scrape(is_discounted, true, price, market_id, &pool).await;
+            db::save_scrape(
+                is_discounted,
+                true,
+                price,
+                market_id.to_string(),
+                models::Store::Rewe,
+                &pool,
+            )
+            .await;
             continue;
         }
 
-        db::save_scrape(is_discounted, true, price, market_id, &pool).await;
+        db::save_scrape(
+            is_discounted,
+            true,
+            price,
+            market_id.to_string(),
+            models::Store::Rewe,
+            &pool,
+        )
+        .await;
 
         for token in tokens {
             let title: String;
@@ -146,5 +168,28 @@ async fn main() {
                 );
             }
         }
+    }
+
+    // aldi things
+    let maybe_aldi_price = aldi::api::get_current_price().await.map(|x| x.price);
+    if let Err(err) = maybe_aldi_price {
+        eprintln!("error querying aldi: {}", err);
+        return;
+    }
+    let aldi_price = maybe_aldi_price.unwrap();
+
+    println!("aldi price: {aldi_price}");
+
+    let aldi_tokens: Vec<String> =
+        sqlx::query!("SELECT token FROM token__market WHERE wants_aldi = true")
+            .fetch_all(&pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|record| (&record.token).to_owned())
+            .collect();
+
+    for token in aldi_tokens {
+        println!("aldi token: {token}")
     }
 }

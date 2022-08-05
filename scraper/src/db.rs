@@ -1,19 +1,23 @@
 use sqlx::postgres::PgQueryResult;
 use sqlx::{Pool, Postgres};
 
+use crate::models::Store;
+
 pub async fn save_scrape(
     discounted: bool,
     success: bool,
     price: Option<i32>,
-    market_id: i32,
+    store_info: String,
+    store: Store,
     pool: &Pool<Postgres>,
 ) {
     sqlx::query!(
-        "INSERT INTO scrapes (discounted, success, price, market_id) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO scrapes (discounted, success, price, store, store_info) VALUES ($1, $2, $3, $4, $5)",
         discounted,
         success,
         price,
-        market_id
+        store as Store,
+        store_info,
     )
     .execute(pool)
     .await;
@@ -24,8 +28,8 @@ pub async fn discounted_last_time(
     pool: &Pool<Postgres>,
 ) -> Result<bool, sqlx::Error> {
     sqlx::query!(
-        "SELECT discounted FROM scrapes WHERE market_id = $1 ORDER BY created_at DESC LIMIT 1",
-        market_id
+        "SELECT discounted FROM scrapes WHERE store_info = $1 ORDER BY created_at DESC LIMIT 1",
+        market_id.to_string()
     )
     .fetch_one(pool)
     .await
