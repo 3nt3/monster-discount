@@ -24,7 +24,7 @@ create table if not exists scrapes
     created_at timestamp with time zone default now()                     not null,
     success    boolean                  default true                      not null,
     price      integer,
-    store_info text                                                       not null,
+    store_info text                                                       ,
     store      varchar(32)              default 'rewe'::character varying not null
 );
 

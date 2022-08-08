@@ -55,7 +55,7 @@ async fn main() {
                 false,
                 false,
                 None,
-                market_id.to_string(),
+                Some(market_id.to_string()),
                 models::Store::Rewe,
                 &pool,
             )
@@ -97,7 +97,7 @@ async fn main() {
                 is_discounted,
                 true,
                 price,
-                market_id.to_string(),
+                Some(market_id.to_string()),
                 models::Store::Rewe,
                 &pool,
             )
@@ -109,7 +109,7 @@ async fn main() {
             is_discounted,
             true,
             price,
-            market_id.to_string(),
+            Some(market_id.to_string()),
             models::Store::Rewe,
             &pool,
         )
@@ -171,12 +171,23 @@ async fn main() {
     }
 
     // aldi things
-    let maybe_aldi_price = aldi::api::get_current_price().await.map(|x| x.price);
-    if let Err(err) = maybe_aldi_price {
-        eprintln!("error querying aldi: {}", err);
-        return;
+    let aldi_price_res = aldi::api::get_current_price().await;
+    if let Err(ref why) = aldi_price_res {
+        eprintln!("error querying aldi: {why}");
+        db::save_scrape(false, false, None, None, models::Store::AldiNord, &pool).await;
     }
-    let aldi_price = maybe_aldi_price.unwrap();
+
+    let aldi_price = aldi_price_res.unwrap();
+    db::save_scrape(
+        false,
+        true,
+        Some(aldi_price),
+        None,
+        models::Store::AldiNord,
+        &pool,
+    )
+    .await
+    .unwrap();
 
     let last_aldi_price = aldi::db::get_last_price(&pool).await;
 

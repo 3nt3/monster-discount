@@ -7,10 +7,10 @@ pub async fn save_scrape(
     discounted: bool,
     success: bool,
     price: Option<i32>,
-    store_info: String,
+    store_info: Option<String>,
     store: Store,
     pool: &Pool<Postgres>,
-) {
+) -> Result<PgQueryResult, sqlx::Error> {
     sqlx::query!(
         "INSERT INTO scrapes (discounted, success, price, store, store_info) VALUES ($1, $2, $3, $4, $5)",
         discounted,
@@ -20,7 +20,7 @@ pub async fn save_scrape(
         store_info,
     )
     .execute(pool)
-    .await;
+    .await
 }
 
 pub async fn discounted_last_time(

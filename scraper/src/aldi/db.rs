@@ -1,8 +1,10 @@
 use sqlx::{Pool, Postgres};
 
+use crate::models::Store;
+
 pub async fn get_last_price(pool: &Pool<Postgres>) -> Result<Option<i32>, sqlx::Error> {
     let res = sqlx::query!(
-        "SELECT price FROM scrapes WHERE store = 'aldi' ORDER BY created_at DESC LIMIT 1"
+        "SELECT price FROM scrapes WHERE store = 'aldinord' ORDER BY created_at DESC LIMIT 1"
     )
     .fetch_optional(pool)
     .await;
