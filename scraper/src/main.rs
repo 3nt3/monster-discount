@@ -178,6 +178,8 @@ async fn main() {
     }
     let aldi_price = maybe_aldi_price.unwrap();
 
+    let last_aldi_price = aldi::db::get_last_price();
+
     println!("aldi price: {aldi_price}");
 
     let aldi_tokens: Vec<String> =
