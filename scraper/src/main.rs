@@ -24,19 +24,22 @@ async fn main() {
         .unwrap();
 
     let mut markets: HashMap<i32, Vec<String>> = HashMap::new();
-    let db_data = sqlx::query!("SELECT token, market_id FROM token__market")
-        .fetch_all(&pool)
-        .await
-        .unwrap();
+    let db_data =
+        sqlx::query!("SELECT token, market_id FROM token__market WHERE market_id is not null")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     for item in &db_data {
-        if let None = markets.get(&item.market_id) {
-            markets.insert(item.market_id, vec![(&item.token).to_string()]);
-        } else {
-            markets
-                .get_mut(&item.market_id)
-                .unwrap()
-                .push((&item.token).to_string());
+        if let Some(market_id) = item.market_id {
+            if let None = markets.get(&market_id) {
+                markets.insert(market_id, vec![(&item.token).to_string()]);
+            } else {
+                markets
+                    .get_mut(&market_id)
+                    .unwrap()
+                    .push((&item.token).to_string());
+            }
         }
     }
 
@@ -59,7 +62,8 @@ async fn main() {
                 models::Store::Rewe,
                 &pool,
             )
-            .await;
+            .await
+            .ok();
             eprintln!("{}", err);
             continue;
         }
@@ -101,7 +105,8 @@ async fn main() {
                 models::Store::Rewe,
                 &pool,
             )
-            .await;
+            .await
+            .ok();
             continue;
         }
 
@@ -113,7 +118,8 @@ async fn main() {
             models::Store::Rewe,
             &pool,
         )
-        .await;
+        .await
+        .ok();
 
         for token in tokens {
             let title: String;
@@ -171,10 +177,14 @@ async fn main() {
     }
 
     // aldi things
+    let last_aldi_price = aldi::db::get_last_price(&pool).await.unwrap();
+
     let aldi_price_res = aldi::api::get_current_price().await;
     if let Err(ref why) = aldi_price_res {
         eprintln!("error querying aldi: {why}");
-        db::save_scrape(false, false, None, None, models::Store::AldiNord, &pool).await;
+        db::save_scrape(false, false, None, None, models::Store::AldiNord, &pool)
+            .await
+            .ok();
     }
 
     let aldi_price = aldi_price_res.unwrap();
@@ -187,25 +197,44 @@ async fn main() {
         &pool,
     )
     .await
-    .unwrap();
-
-    let last_aldi_price = aldi::db::get_last_price(&pool).await;
+    .ok();
 
     println!(
         "aldi price: {aldi_price}, last price: {:?}",
         last_aldi_price
     );
 
-    let aldi_tokens: Vec<String> =
-        sqlx::query!("SELECT token FROM token__market WHERE wants_aldi = true")
-            .fetch_all(&pool)
-            .await
-            .unwrap()
-            .iter()
-            .map(|record| (&record.token).to_owned())
-            .collect();
+    if last_aldi_price.is_some() && aldi_price >= last_aldi_price.unwrap_or(0) {
+        println!("aldi isn't cheaper than last scrape");
+    } else {
+        let aldi_tokens = aldi::db::get_tokens(&pool).await.unwrap();
 
-    for token in aldi_tokens {
-        println!("aldi token: {token}")
+        for token in aldi_tokens {
+            println!("aldi token: {token}");
+
+            let notification = Notification {
+                title: Some(format!(
+                    "Monster is discounted to {} at ALDI Nord",
+                    (aldi_price as f32) / 100.0
+                )),
+                body: Some("That's pretty cool ig".to_string()),
+                image: None,
+            };
+            let receiver = Receiver::Token(token.to_string());
+            let mut body = MessageBody::new(receiver);
+            body.notification(notification);
+
+            let message = Message::new("monster-discount", oauth_token.as_str(), body);
+
+            let client = Client::new();
+            match client.send(message).await {
+                Err(why) => {
+                    eprintln!("error happened: {why}");
+                }
+                Ok(what) => {
+                    println!("{what}");
+                }
+            }
+        }
     }
 }
