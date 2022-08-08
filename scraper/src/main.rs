@@ -178,15 +178,21 @@ async fn main() {
     }
     let aldi_price = maybe_aldi_price.unwrap();
 
-    let last_aldi_price = aldi::db::get_last_price(pool);
+    let last_aldi_price = aldi::db::get_last_price(&pool).await;
 
-    println!("aldi price: {aldi_price}");
+    println!(
+        "aldi price: {aldi_price}, last price: {:?}",
+        last_aldi_price
+    );
 
-    let aldi_tokens: Vec<&str> =
+    let aldi_tokens: Vec<String> =
         sqlx::query!("SELECT token FROM token__market WHERE wants_aldi = true")
             .fetch_all(&pool)
             .await
-            .unwrap();
+            .unwrap()
+            .iter()
+            .map(|record| (&record.token).to_owned())
+            .collect();
 
     for token in aldi_tokens {
         println!("aldi token: {token}")
