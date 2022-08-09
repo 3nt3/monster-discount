@@ -32,6 +32,7 @@ use rocket::serde::{json::Json, Deserialize, Serialize};
 pub struct User {
     pub markets: Vec<i32>,
     pub token: String,
+    pub wants_aldi: bool
 }
 
 #[post("/watch-markets", data = "<data>")]
@@ -68,20 +69,33 @@ async fn watched_markets(
     pool: &State<Pool<Postgres>>,
     token: String,
 ) -> Result<Json<User>, Status> {
-    let res = sqlx::query!(
-        "SELECT market_id FROM token__market WHERE token = $1",
+    let market_res = sqlx::query!(
+        "SELECT market_id FROM token__market WHERE token = $1 AND market_id is not null",
         token
     )
     .fetch_all(&**pool)
     .await;
 
-    match res {
+    let aldi_res = sqlx::query!("select wants_aldi from token__market where token = $1", token).fetch_optional(&**pool).await;
+
+    match market_res {
         Ok(data) => {
             println!("{:?}", data);
-            return Ok(Json(User {
-                markets: data.iter().map(|x| x.market_id).collect(),
-                token,
-            }));
+
+            match aldi_res {
+                Ok(aldi_data) => {
+                    return Ok(Json(User {
+                        markets: data.iter().map(|x| x.market_id.unwrap()).collect(),
+                        token,
+                        wants_aldi: aldi_data.wants_aldi.unwrap_or(false)
+                    }));
+                },
+                Err(why) => {
+                    eprintln!(why);
+                    Err(Status::InternalServerError)
+                }
+            }
+
         }
         Err(_) => Err(Status::InternalServerError),
     }
@@ -97,7 +111,7 @@ async fn main() -> Result<()> {
         .connect(&database_url)
         .await?;
 
-    sqlx::migrate!("db/migrations").run(&pool).await?;
+    // sqlx::migrate!("db/migrations").run(&pool).await?;
 
     rocket::build()
         .mount("/", routes![watch_markets, watched_markets])
