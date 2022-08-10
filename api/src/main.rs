@@ -32,7 +32,7 @@ use rocket::serde::{json::Json, Deserialize, Serialize};
 pub struct User {
     pub markets: Vec<i32>,
     pub token: String,
-    pub wants_aldi: bool
+    pub wants_aldi: bool,
 }
 
 #[post("/watch-markets", data = "<data>")]
@@ -51,9 +51,10 @@ async fn watch_markets(pool: &State<Pool<Postgres>>, data: Json<User>) -> Result
             .await;
 
         let insert2_res = sqlx::query!(
-            "INSERT INTO token__market (token, market_id) VALUES ($1, $2)",
+            "INSERT INTO token__market (token, market_id, wants_aldi) VALUES ($1, $2, $3)",
             data.token,
-            market
+            market,
+            data.wants_aldi
         )
         .execute(&**pool)
         .await;
@@ -76,26 +77,35 @@ async fn watched_markets(
     .fetch_all(&**pool)
     .await;
 
-    let aldi_res = sqlx::query!("select wants_aldi from token__market where token = $1", token).fetch_optional(&**pool).await;
+    let aldi_res = sqlx::query!(
+        "select wants_aldi from token__market where token = $1",
+        token
+    )
+    .fetch_optional(&**pool)
+    .await;
 
     match market_res {
         Ok(data) => {
             println!("{:?}", data);
 
             match aldi_res {
-                Ok(aldi_data) => {
+                Ok(maybe_aldi_data) => {
+                    let wants_aldi = match maybe_aldi_data {
+                        None => false,
+                        Some(aldi_data) => aldi_data.wants_aldi.unwrap_or(false),
+                    };
+
                     return Ok(Json(User {
                         markets: data.iter().map(|x| x.market_id.unwrap()).collect(),
                         token,
-                        wants_aldi: aldi_data.wants_aldi.unwrap_or(false)
+                        wants_aldi,
                     }));
-                },
+                }
                 Err(why) => {
-                    eprintln!(why);
+                    eprintln!("{why}");
                     Err(Status::InternalServerError)
                 }
             }
-
         }
         Err(_) => Err(Status::InternalServerError),
     }

@@ -247,7 +247,8 @@ class _MyReweWidgetState extends State<MyReweWidget> {
     await http.post(Uri.parse(API_URL + "/watch-markets"),
         body: jsonEncode({
           "markets": _selectedMarkets.map((e) => int.parse(e.id)).toList(),
-          "token": token
+          "token": token,
+          "wants_aldi": true
         }));
   }
 
