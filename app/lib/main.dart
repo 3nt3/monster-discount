@@ -5,6 +5,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:flutter_svg/svg.dart';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
@@ -122,13 +124,14 @@ class _MyHomePageState extends State<MyHomePage> {
                 Text('sagt dir, wenn Monster discountet ist.',
                     style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 50),
+                Text('SUPERMÄRKTE FÜR GERINGVERDIENENDE',
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 20),
+                MyPrecariatWidget(),
+                const SizedBox(height: 40),
                 Text('REWE DEIN MARKT??',
                     style: Theme.of(context).textTheme.headlineSmall),
                 const MyReweWidget(),
-                const SizedBox(height: 40),
-                Text('SUPERMÄRKTE FÜR GERINGVERDIENENDE',
-                    style: Theme.of(context).textTheme.headlineSmall),
-                const Text("coming soon (nie)")
               ],
             ),
           ),
@@ -407,5 +410,48 @@ class MyMarketTile extends StatelessWidget {
       ),
       const SizedBox(height: 10),
     ]);
+  }
+}
+
+class MyPrecariatWidget extends StatefulWidget {
+  const MyPrecariatWidget({
+    Key? key,
+  }) : super(key: key);
+
+  // This widget is the home page of your application. It is stateful, meaning
+  // that it has a State object (defined below) that contains fields that affect
+  // how it looks.
+
+  // This class is the configuration for the state. It holds the values (in this
+  // case the title) provided by the parent (in this case the App widget) and
+  // used by the build method of the State. Fields in a Widget subclass are
+  // always marked "final".
+
+  @override
+  State<MyPrecariatWidget> createState() => _MyPrecariatWidgetState();
+}
+
+class _MyPrecariatWidgetState extends State<MyPrecariatWidget> {
+  var stores = {
+    'aldinord': true,
+  };
+
+  void _onPressed(String storeName) {
+    stores[storeName] = !stores[storeName]!;
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        children: stores.entries
+            .map((entry) => TextButton(
+                onPressed: () => _onPressed(entry.key),
+                child: Image.asset(
+                    'assets/stores/${entry.key}${entry.value ? "" : "_disabled"}.png',
+                    height: 100)))
+            .toList());
   }
 }
