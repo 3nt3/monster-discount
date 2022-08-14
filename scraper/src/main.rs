@@ -162,11 +162,11 @@ async fn main() {
                 if err.to_string().starts_with("NOT_FOUND") {
                     let result = db::delete_token(&token, &pool).await;
                     if let Err(err) = result {
-                        eprintln!("error deleting token from database: {}", err);
+                        eprintln!("error deleting token from database: {:?}", err);
                     }
                     continue;
                 }
-                eprintln!("error sending push notification: {}", err);
+                eprintln!("error sending push notification: {:?}", err);
             } else {
                 println!(
                     "sent notification about '{} {}' to {}",
@@ -184,12 +184,12 @@ async fn main() {
         eprintln!("error querying aldi: {why}");
         db::save_scrape(false, false, None, None, models::Store::AldiNord, &pool)
             .await
-            .ok();
+            .unwrap();
     }
 
     let aldi_price = aldi_price_res.unwrap();
     db::save_scrape(
-        false,
+        last_aldi_price.unwrap_or(0) > aldi_price,
         true,
         Some(aldi_price),
         None,
@@ -197,14 +197,14 @@ async fn main() {
         &pool,
     )
     .await
-    .ok();
+    .unwrap();
 
     println!(
         "aldi price: {aldi_price}, last price: {:?}",
         last_aldi_price
     );
 
-    if last_aldi_price.is_some() && aldi_price >= last_aldi_price.unwrap_or(0) {
+    if last_aldi_price.is_none() || aldi_price >= last_aldi_price.unwrap_or(aldi_price) {
         println!("aldi isn't cheaper than last scrape");
     } else {
         let aldi_tokens = aldi::db::get_tokens(&pool).await.unwrap();
@@ -214,7 +214,7 @@ async fn main() {
 
             let notification = Notification {
                 title: Some(format!(
-                    "Monster is discounted to {} at ALDI Nord",
+                    "Monster is discounted to {}€ at ALDI Nord",
                     (aldi_price as f32) / 100.0
                 )),
                 body: Some("That's pretty cool ig".to_string()),
