@@ -96,7 +96,7 @@ async fn watched_markets(
                     };
 
                     if data.len() == 0 && !wants_aldi {
-                        Err(Status::NotFound)
+                        return Err(Status::NotFound);
                     }
 
                     return Ok(Json(User {
