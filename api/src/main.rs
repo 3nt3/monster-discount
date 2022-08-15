@@ -95,6 +95,10 @@ async fn watched_markets(
                         Some(aldi_data) => aldi_data.wants_aldi.unwrap_or(false),
                     };
 
+                    if data.len() == 0 && !wants_aldi {
+                        Err(Status::NotFound)
+                    }
+
                     return Ok(Json(User {
                         markets: data.iter().map(|x| x.market_id.unwrap()).collect(),
                         token,
