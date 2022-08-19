@@ -4,8 +4,8 @@ pub async fn get_last_price(pool: &Pool<Postgres>) -> Result<Option<i32>, sqlx::
     let res = sqlx::query!(
         "SELECT price FROM scrapes WHERE store = 'aldinord' ORDER BY created_at DESC LIMIT 1"
     )
-        .fetch_optional(pool)
-        .await;
+    .fetch_optional(pool)
+    .await;
 
     if let Err(why) = res {
         Err(why)

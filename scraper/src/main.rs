@@ -63,8 +63,8 @@ async fn main() {
                 &pool,
             )
             .await
-            .ok();
-            eprintln!("{}", err);
+            .unwrap();
+            eprintln!("error querying rewe: {err}");
             continue;
         }
 
@@ -88,90 +88,94 @@ async fn main() {
             }
         }
 
-        let market_info = rewe::api::get_market_info(market_id).await.unwrap();
-
-        if db::discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
-            println!(
-                "already notified people about {} hopefully ({}€, discounted: {})",
-                market_id,
-                price.map(|x| (x as f32) / 100.).unwrap_or(0.),
-                is_discounted
-            );
-            db::save_scrape(
-                is_discounted,
-                true,
-                price,
-                Some(market_id.to_string()),
-                models::Store::Rewe,
-                &pool,
-            )
-            .await
-            .ok();
-            continue;
-        }
-
-        db::save_scrape(
-            is_discounted,
-            true,
-            price,
-            Some(market_id.to_string()),
-            models::Store::Rewe,
-            &pool,
-        )
-        .await
-        .ok();
-
-        for token in tokens {
-            let title: String;
-            if !is_discounted {
-                title = "Monster is not discounted anymore 😔".to_string();
-            } else {
-                if let Some(some_price) = &price {
-                    title = format!(
-                        "MONSTER IS DISCOUNTED TO {}€!! 🎉🎉",
-                        (*some_price as f32) / 100.0
+        let market_info_res = rewe::api::get_market_info(market_id).await;
+        match market_info_res {
+            Err(why) => eprintln!("error querying rewe market info: {why}"),
+            Ok(market_info) => {
+                if db::discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
+                    println!(
+                        "already notified people about {} hopefully ({}€, discounted: {})",
+                        market_id,
+                        price.map(|x| (x as f32) / 100.).unwrap_or(0.),
+                        is_discounted
                     );
-                } else {
-                    title = "MONSTER IS DISCOUNTED 🎉".to_string();
-                }
-            }
-
-            let notification = Notification {
-                title: Some(title),
-                body: Some(format!(
-                    "At REWE {} in {}",
-                    market_info.address.street, market_info.address.city
-                )),
-                image: Some("https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Flogos-download.com%2Fwp-content%2Fuploads%2F2016%2F09%2FRewe_logo_Dein_Markt.png&f=1&nofb=1".to_string()), // EXTREMELY professional
-            };
-
-            let receiver = Receiver::Token(token.to_string());
-            let mut body = MessageBody::new(receiver);
-            body.notification(notification);
-
-            let message = Message::new("monster-discount", oauth_token.as_str(), body);
-
-            let client = Client::new();
-            if let Err(err) = client.send(message).await {
-                // if the device token is invalid because the app was uninstalled (hopefully that's
-                // what it means at least), delete the token relationship to not do useless
-                // requests
-                //
-                // TODO: concurrent requests to firebase - this will *not* scale well when all
-                // notifications are sent one after another
-                if err.to_string().starts_with("NOT_FOUND") {
-                    let result = db::delete_token(&token, &pool).await;
-                    if let Err(err) = result {
-                        eprintln!("error deleting token from database: {:?}", err);
-                    }
+                    db::save_scrape(
+                        is_discounted,
+                        true,
+                        price,
+                        Some(market_id.to_string()),
+                        models::Store::Rewe,
+                        &pool,
+                    )
+                    .await
+                    .ok();
                     continue;
                 }
-                eprintln!("error sending push notification: {:?}", err);
-            } else {
-                println!(
-                    "sent notification about '{} {}' to {}",
-                    market_info.address.street, market_info.address.city, &token
-                );
+
+                db::save_scrape(
+                    is_discounted,
+                    true,
+                    price,
+                    Some(market_id.to_string()),
+                    models::Store::Rewe,
+                    &pool,
+                )
+                .await
+                .unwrap();
+
+                for token in tokens {
+                    let title: String;
+                    if !is_discounted {
+                        title = "Monster is not discounted anymore 😔".to_string();
+                    } else {
+                        if let Some(some_price) = &price {
+                            title = format!(
+                                "MONSTER IS DISCOUNTED TO {}€!! 🎉🎉",
+                                (*some_price as f32) / 100.0
+                            );
+                        } else {
+                            title = "MONSTER IS DISCOUNTED 🎉".to_string();
+                        }
+                    }
+
+                    let notification = Notification {
+                        title: Some(title),
+                        body: Some(format!(
+                            "At REWE {} in {}",
+                            market_info.address.street, market_info.address.city
+                        )),
+                        image: Some("https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Flogos-download.com%2Fwp-content%2Fuploads%2F2016%2F09%2FRewe_logo_Dein_Markt.png&f=1&nofb=1".to_string()), // EXTREMELY professional
+                    };
+
+                    let receiver = Receiver::Token(token.to_string());
+                    let mut body = MessageBody::new(receiver);
+                    body.notification(notification);
+
+                    let message = Message::new("monster-discount", oauth_token.as_str(), body);
+
+                    let client = Client::new();
+                    if let Err(err) = client.send(message).await {
+                        // if the device token is invalid because the app was uninstalled (hopefully that's
+                        // what it means at least), delete the token relationship to not do useless
+                        // requests
+                        //
+                        // TODO: concurrent requests to firebase - this will *not* scale well when all
+                        // notifications are sent one after another
+                        if err.to_string().starts_with("NOT_FOUND") {
+                            let result = db::delete_token(&token, &pool).await;
+                            if let Err(err) = result {
+                                eprintln!("error deleting token from database: {:?}", err);
+                            }
+                            continue;
+                        }
+                        eprintln!("error sending push notification: {:?}", err);
+                    } else {
+                        println!(
+                            "sent notification about '{} {}' to {}",
+                            market_info.address.street, market_info.address.city, &token
+                        );
+                    }
+                }
             }
         }
     }
