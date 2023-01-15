@@ -10,10 +10,14 @@ mod aldi;
 mod db;
 mod models;
 mod rewe;
+mod trinkgut;
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().unwrap();
+
+    trinkgut::scrape::get_listings("elke-luck-ii".to_string()).await.unwrap();
+    return;
 
     let database_url = env::var("DATABASE_URL").unwrap();
 

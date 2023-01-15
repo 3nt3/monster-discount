@@ -1,5 +1,5 @@
 [package]
-name = "scraper"
+name = "monster-scraper"
 version = "0.1.0"
 edition = "2021"
 
@@ -18,3 +18,4 @@ chrono = "0.4.19"
 teloxide = { version = "0.9", features = ["macros", "auto-send"] }
 log = "0.4"
 pretty_env_logger = "0.4"
+scraper = "0.14.0"
