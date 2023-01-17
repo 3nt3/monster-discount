@@ -38,7 +38,7 @@ pub async fn get_listings_by_market_id(market_id: String) -> anyhow::Result<Vec<
 
                 let description_text = description.text().collect::<Vec<_>>().join("").trim().to_string();
 
-                println!("{} ({}): {}", title_text, image_url, price_text);
+                // println!("{} ({}): {}", title_text, image_url, price_text);
                 listings.push(Listing {
                     title: title_text,
                     price: price_text,

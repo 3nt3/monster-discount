@@ -1,6 +1,6 @@
 -- Add migration script here
-drop type store;
-create type store as enum ('rewe', 'aldinord');
+-- drop type store;
+create type if not exists store as enum ('rewe', 'aldinord');
 
 alter type store owner to monster_discount;
 
@@ -35,7 +35,7 @@ alter table scrapes
 create table if not exists token__market
 (
     token      varchar(300) not null,
-    market_id  integer      
+    market_id  integer
         constraint user__market_markets_id_fk
             references markets,
     wants_aldi boolean default false

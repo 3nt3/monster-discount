@@ -1,9 +1,11 @@
 use firebae_cm::{Client, Message, MessageBody, Notification, Receiver};
 use gcp_auth::{AuthenticationManager, CustomServiceAccount};
+use sqlx::{Pool, Postgres};
 use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 
+use futures::StreamExt;
 use sqlx::postgres::PgPoolOptions;
 
 mod aldi;
@@ -16,7 +18,6 @@ mod trinkgut;
 async fn main() {
     dotenv::dotenv().unwrap();
 
-
     let database_url = env::var("DATABASE_URL").unwrap();
 
     let pool = PgPoolOptions::new()
@@ -25,13 +26,6 @@ async fn main() {
         .await
         .unwrap();
 
-    let market_id = trinkgut::scrape::get_market_id("elke-luck-ii".to_string()).await.unwrap();
-    let discounted = trinkgut::scrape::is_product_discounted(&market_id, &"monster".to_string()).await.unwrap();
-    let price = if discounted { todo!() } else { None };
-
-    dbg!(db::save_scrape(discounted, true, price, Some(market_id), models::Store::TrinkGut, &pool).await.unwrap());
-
-    return;
     let mut markets: HashMap<i32, Vec<String>> = HashMap::new();
     let db_data =
         sqlx::query!("SELECT token, market_id FROM token__market WHERE market_id is not null")
@@ -101,7 +95,11 @@ async fn main() {
         match market_info_res {
             Err(why) => eprintln!("error querying rewe market info: {why}"),
             Ok(market_info) => {
-                if db::discounted_last_time(market_id, models::Store::Rewe, &pool).await.ok() == Some(is_discounted) {
+                if db::discounted_last_time(market_id, models::Store::Rewe, &pool)
+                    .await
+                    .ok()
+                    == Some(is_discounted)
+                {
                     println!(
                         "already notified people about {} hopefully ({}€, discounted: {})",
                         market_id,
@@ -250,4 +248,41 @@ async fn main() {
             }
         }
     }
+
+    trinkgut(&pool).await;
+}
+
+async fn trinkgut(pool: &Pool<Postgres>) -> anyhow::Result<()> {
+    // FIXME: don't hardcode one market
+    let market_id: String = trinkgut::scrape::get_market_id("elke-luck-ii".to_string()).await?;
+    let discounted =
+        trinkgut::scrape::is_product_discounted(&market_id, &"monster".to_string()).await?;
+    let price = if discounted { todo!() } else { None };
+
+    dbg!(
+        db::save_scrape(
+            discounted,
+            true,
+            price,
+            Some((&market_id).to_string()),
+            models::Store::TrinkGut,
+            &pool
+        )
+        .await?
+    );
+
+    let listings = trinkgut::scrape::get_listings_by_market_id(market_id).await?;
+
+    // write each one to db in parallel using stream::iter
+    let mut stream = futures::stream::iter(listings.iter()).map(|listing| {
+        let pool = pool.clone();
+        async move { trinkgut::db::save_scrape(&pool, &listing).await }
+    }).buffer_unordered(10);
+    stream
+        .for_each(|x| async {
+            x?;
+        })
+        .await;
+
+    Ok(())
 }
