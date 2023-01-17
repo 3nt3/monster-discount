@@ -16,4 +16,5 @@ pub struct Scrape {
 pub enum Store {
     Rewe,
     AldiNord,
+    TrinkGut
 }

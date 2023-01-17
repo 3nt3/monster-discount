@@ -25,11 +25,13 @@ pub async fn save_scrape(
 
 pub async fn discounted_last_time(
     market_id: i32,
+    store: Store,
     pool: &Pool<Postgres>,
 ) -> Result<bool, sqlx::Error> {
     sqlx::query!(
-        "SELECT discounted FROM scrapes WHERE store_info = $1 ORDER BY created_at DESC LIMIT 1",
-        market_id.to_string()
+        "SELECT discounted FROM scrapes WHERE store_info = $1 AND store = $2 ORDER BY created_at DESC LIMIT 1",
+        market_id.to_string(),
+        store as Store
     )
     .fetch_one(pool)
     .await

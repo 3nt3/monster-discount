@@ -16,8 +16,6 @@ mod trinkgut;
 async fn main() {
     dotenv::dotenv().unwrap();
 
-    trinkgut::scrape::get_listings("elke-luck-ii".to_string()).await.unwrap();
-    return;
 
     let database_url = env::var("DATABASE_URL").unwrap();
 
@@ -27,6 +25,13 @@ async fn main() {
         .await
         .unwrap();
 
+    let market_id = trinkgut::scrape::get_market_id("elke-luck-ii".to_string()).await.unwrap();
+    let discounted = trinkgut::scrape::is_product_discounted(&market_id, &"monster".to_string()).await.unwrap();
+    let price = if discounted { todo!() } else { None };
+
+    dbg!(db::save_scrape(discounted, true, price, Some(market_id), models::Store::TrinkGut, &pool).await.unwrap());
+
+    return;
     let mut markets: HashMap<i32, Vec<String>> = HashMap::new();
     let db_data =
         sqlx::query!("SELECT token, market_id FROM token__market WHERE market_id is not null")
@@ -96,7 +101,7 @@ async fn main() {
         match market_info_res {
             Err(why) => eprintln!("error querying rewe market info: {why}"),
             Ok(market_info) => {
-                if db::discounted_last_time(market_id, &pool).await.ok() == Some(is_discounted) {
+                if db::discounted_last_time(market_id, models::Store::Rewe, &pool).await.ok() == Some(is_discounted) {
                     println!(
                         "already notified people about {} hopefully ({}€, discounted: {})",
                         market_id,
