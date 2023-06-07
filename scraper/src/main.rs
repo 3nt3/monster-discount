@@ -82,9 +82,23 @@ async fn main() {
             for offer in cat.offers {
                 if offer.title.to_lowercase().contains("monster") {
                     is_discounted = true;
+                    dbg!(&offer);
+
+                    // remove everything but numbers and comma, then replace comma with dot
+                    let price_cleaned = offer.price_data.price.map(|x| {
+                        x.chars()
+                            .filter(|c| c.is_ascii_digit() || c == &',')
+                            .collect::<String>()
+                            .replace(",", ".")
+                    });
+
+                    dbg!(&price_cleaned);
+
                     let price_parsed_opt: Option<f32> =
-                        offer.price_data.price.and_then(|x| x.parse::<f32>().ok());
+                        price_cleaned.and_then(|x| x.parse::<f32>().ok());
                     price = price_parsed_opt.map(|x: f32| ((x * 100.0).round() as i32));
+
+                    dbg!(&price);
 
                     break 'catloop;
                 }
@@ -274,13 +288,17 @@ async fn trinkgut(pool: &Pool<Postgres>) -> anyhow::Result<()> {
     let listings = trinkgut::scrape::get_listings_by_market_id(market_id).await?;
 
     // write each one to db in parallel using stream::iter
-    let mut stream = futures::stream::iter(listings.iter()).map(|listing| {
-        let pool = pool.clone();
-        async move { trinkgut::db::save_scrape(&pool, &listing).await }
-    }).buffer_unordered(10);
+    let mut stream = futures::stream::iter(listings.iter())
+        .map(|listing| {
+            let pool = pool.clone();
+            async move { trinkgut::db::save_scrape(&pool, &listing).await }
+        })
+        .buffer_unordered(10);
     stream
         .for_each(|x| async {
-            x?;
+            if let Err(err) = x {
+                eprintln!("error saving trinkgut scrape: {:?}", err);
+            }
         })
         .await;
 

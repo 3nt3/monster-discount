@@ -30,14 +30,14 @@ pub mod tests {
     #[tokio::test]
     pub async fn returns_market_info() {
         let res = get_market_info(1940156).await;
-        dbg!(&res);
+        //dbg!(&res);
         assert_eq!(true, res.is_ok());
     }
 
     #[tokio::test]
     pub async fn gets_offers() {
         let res = get_offers(1940156).await;
-        dbg!(&res);
+        // dbg!(&res);
         assert_eq!(true, res.is_ok());
     }
 
