@@ -1,26 +1,29 @@
 -- Add migration script here
-create table trinkgut_scrapes (
-    id serial primary key,
-    product_name text not null,
-    price text not null,
-    description text not null,
-    image_url text not null,
-    market_id text not null
-    created_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS trinkgut_scrapes
+(
+    id           serial PRIMARY KEY,
+    product_name text NOT NULL,
+    price        text NOT NULL,
+    description  text NOT NULL,
+    image_url    text NOT NULL,
+    market_id    text NOT NULL,
+    created_at   timestamptz DEFAULT now()
 );
 
-create table trinkgut_markets (
-    id serial primary key,
-    name text not null,
-    market_id text not null,
-    created_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS trinkgut_markets
+(
+    id         serial PRIMARY KEY,
+    name       text NOT NULL,
+    market_id  text NOT NULL,
+    created_at timestamptz DEFAULT now()
 );
 
-create table trinkgut_market__token (
-    id serial primary key,
-    market_id text not null,
-    token text not null,
-    created_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS trinkgut_market__token
+(
+    id         serial PRIMARY KEY,
+    market_id  text NOT NULL,
+    token      text NOT NULL,
+    created_at timestamptz DEFAULT now()
 );
 
--- alter type store add value if not exists 'trinkgut';
+ALTER TYPE store ADD VALUE if NOT EXISTS 'trinkgut';
