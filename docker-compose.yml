@@ -9,7 +9,7 @@ services:
       - "POSTGRES_USER=monster_discount"
       - "POSTGRES_PASSWORD=MUAo1GqZ75WBzZlBALMqr3k4uU97s1uH"
     ports:
-      - 5434:5432
+      - 33541:5432
 
 volumes:
   db_data:

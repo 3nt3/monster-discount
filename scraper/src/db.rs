@@ -42,7 +42,7 @@ pub async fn delete_token(
     token: &str,
     pool: &Pool<Postgres>,
 ) -> Result<PgQueryResult, sqlx::Error> {
-    sqlx::query!("DELETE FROM token__market WHERE token = $1", token)
+    sqlx::query!("DELETE FROM rewe_token__market WHERE token = $1", token)
         .execute(pool)
         .await
 }

@@ -8,15 +8,19 @@ use std::path::PathBuf;
 use futures::StreamExt;
 use sqlx::postgres::PgPoolOptions;
 
-mod aldi;
+#[macro_use] extern crate log;
+
+// mod aldi;
 mod db;
 mod models;
 mod rewe;
-mod trinkgut;
+// mod trinkgut;
 
 #[tokio::main]
 async fn main() {
+    // setup pretty_env_logger
     dotenv::dotenv().unwrap();
+    pretty_env_logger::try_init().unwrap();
 
     let database_url = env::var("DATABASE_URL").unwrap();
 
@@ -32,43 +36,46 @@ async fn main() {
     let authentication_manager = AuthenticationManager::from(service_account);
     let scopes = &["https://www.googleapis.com/auth/firebase.messaging"];
     let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
+
+    // rewe
+    let _ = rewe::query_all_discounts(&pool).await;
 }
 
-async fn trinkgut(pool: &Pool<Postgres>) -> anyhow::Result<()> {
-    // FIXME: don't hardcode one market
-    let market_id: String = trinkgut::scrape::get_market_id("elke-luck-ii".to_string()).await?;
-    let discounted =
-        trinkgut::scrape::is_product_discounted(&market_id, &"monster".to_string()).await?;
-    let price = if discounted { todo!() } else { None };
+// async fn trinkgut(pool: &Pool<Postgres>) -> anyhow::Result<()> {
+//     // FIXME: don't hardcode one market
+//     let market_id: String = trinkgut::scrape::get_market_id("elke-luck-ii".to_string()).await?;
+//     let discounted =
+//         trinkgut::scrape::is_product_discounted(&market_id, &"monster".to_string()).await?;
+//     let price = if discounted { todo!() } else { None };
 
-    dbg!(
-        db::save_scrape(
-            discounted,
-            true,
-            price,
-            Some((&market_id).to_string()),
-            models::Store::TrinkGut,
-            &pool
-        )
-        .await?
-    );
+//     dbg!(
+//         db::save_scrape(
+//             discounted,
+//             true,
+//             price,
+//             Some((&market_id).to_string()),
+//             models::Store::TrinkGut,
+//             &pool
+//         )
+//         .await?
+//     );
 
-    let listings = trinkgut::scrape::get_listings_by_market_id(market_id).await?;
+//     let listings = trinkgut::scrape::get_listings_by_market_id(market_id).await?;
 
-    // write each one to db in parallel using stream::iter
-    let mut stream = futures::stream::iter(listings.iter())
-        .map(|listing| {
-            let pool = pool.clone();
-            async move { trinkgut::db::save_scrape(&pool, &listing).await }
-        })
-        .buffer_unordered(10);
-    stream
-        .for_each(|x| async {
-            if let Err(err) = x {
-                eprintln!("error saving trinkgut scrape: {:?}", err);
-            }
-        })
-        .await;
+//     // write each one to db in parallel using stream::iter
+//     let mut stream = futures::stream::iter(listings.iter())
+//         .map(|listing| {
+//             let pool = pool.clone();
+//             async move { trinkgut::db::save_scrape(&pool, &listing).await }
+//         })
+//         .buffer_unordered(10);
+//     stream
+//         .for_each(|x| async {
+//             if let Err(err) = x {
+//                 eprintln!("error saving trinkgut scrape: {:?}", err);
+//             }
+//         })
+//         .await;
 
-    Ok(())
-}
+//     Ok(())
+// }
