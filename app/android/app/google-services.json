@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:894615797397:android:6527e66633de90c271a59c",
         "android_client_info": {
-          "package_name": "xyz.ente.monsterdiscount"
+          "package_name": "com.example.app"
         }
       },
       "oauth_client": [
@@ -31,7 +31,7 @@
               "client_type": 3
             },
             {
-              "client_id": "894615797397-9tki6sclks08bllmiscqvjt05433m02j.apps.googleusercontent.com",
+              "client_id": "894615797397-71teumagm5a1g801oi18fakgm9pbri40.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "xyz.ente.monsterdiscount"
@@ -67,7 +67,7 @@
               "client_type": 3
             },
             {
-              "client_id": "894615797397-9tki6sclks08bllmiscqvjt05433m02j.apps.googleusercontent.com",
+              "client_id": "894615797397-71teumagm5a1g801oi18fakgm9pbri40.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "xyz.ente.monsterdiscount"

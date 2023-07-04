@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -49,6 +46,16 @@ class DefaultFirebaseOptions {
     }
   }
 
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAroQb6W2JXtFWgkKVjoElL4wdJOK281Ng',
+    appId: '1:894615797397:web:ba22d03ff2cc404871a59c',
+    messagingSenderId: '894615797397',
+    projectId: 'monster-discount',
+    authDomain: 'monster-discount.firebaseapp.com',
+    storageBucket: 'monster-discount.appspot.com',
+    measurementId: 'G-FP03CS0HHX',
+  );
+
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyC03s_G2Lvc_98KV44xIojfAjcYbQwW-eU',
     appId: '1:894615797397:android:ae0e008fecc4971f71a59c',
@@ -59,11 +66,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCYII_Jm-qasVYVNlEN5iqbXrBei4jX5t4',
-    appId: '1:894615797397:ios:41cdeddea51840e371a59c',
+    appId: '1:894615797397:ios:4290e9ccb86f5ab971a59c',
     messagingSenderId: '894615797397',
     projectId: 'monster-discount',
     storageBucket: 'monster-discount.appspot.com',
-    iosClientId: '894615797397-71teumagm5a1g801oi18fakgm9pbri40.apps.googleusercontent.com',
-    iosBundleId: 'xyz.ente.monsterdiscount',
+    iosClientId: '894615797397-q6ucujlse55r70mniohc8t5eds44f7ko.apps.googleusercontent.com',
+    iosBundleId: 'xyz.ente.app',
   );
 }
