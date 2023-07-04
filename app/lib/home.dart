@@ -30,12 +30,29 @@ class _MyHomePageState extends State<MyHomePage> {
     return SafeArea(
       child: SizedBox.expand(
         child: ListView(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
           shrinkWrap: true,
           children: [
             Text('Monster Prices',
                 style: Theme.of(context).textTheme.headlineMedium),
-            MyPricesWidget()
+            const MyPricesWidget(),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Text('REWE Locations',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const Spacer(),
+                IconButton(
+                    onPressed: () {
+                      // TODO: actually navigate to settings or something
+                    },
+                    icon: const Icon(Icons.edit))
+              ],
+            ),
+            const MyReweLocations(),
+            const SizedBox(height: 20),
+            // Text('Trinkgut Locations',
+            //     style: Theme.of(context).textTheme.headlineMedium),
           ],
         ),
       ),
@@ -124,6 +141,33 @@ class MyPriceTile extends StatelessWidget {
         ),
         const SizedBox(width: 10),
       ],
+    );
+  }
+}
+
+class MyReweLocations extends StatefulWidget {
+  const MyReweLocations({super.key});
+
+  @override
+  State<MyReweLocations> createState() => _MyReweLocationsState();
+}
+
+class _MyReweLocationsState extends State<MyReweLocations> {
+  final _locations = ['dieker strasse', 'unten'];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      shrinkWrap: true,
+      children: _locations
+          .map(
+            (location) => Card(
+              child: ListTile(
+                title: Text(location),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

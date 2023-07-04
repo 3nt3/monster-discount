@@ -75,14 +75,14 @@ class _MyAppState extends State<MyApp> {
         brightness: Brightness.light,
         colorScheme: ColorScheme.fromSeed(
             seedColor: Color(0xb8e994), brightness: Brightness.light),
-        textTheme: GoogleFonts.ptSerifTextTheme(),
+        fontFamily: GoogleFonts.ptSerif().fontFamily,
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
             seedColor: Color(0xb8e994), brightness: Brightness.dark),
-        textTheme: GoogleFonts.ptSerifTextTheme(),
+        fontFamily: GoogleFonts.ptSerif().fontFamily,
       ),
       home: Scaffold(
         appBar: AppBar(title: const Text("Monster Dinge™️")),
