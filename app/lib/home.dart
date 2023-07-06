@@ -27,33 +27,36 @@ class _MyHomePageState extends State<MyHomePage> {
     // The Flutter framework has been optimized to make rerunning build methods
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
-    return SafeArea(
-      child: SizedBox.expand(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          shrinkWrap: true,
-          children: [
-            Text('Monster Prices',
-                style: Theme.of(context).textTheme.headlineMedium),
-            const MyPricesWidget(),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Text('REWE Locations',
-                    style: Theme.of(context).textTheme.headlineMedium),
-                const Spacer(),
-                IconButton(
-                    onPressed: () {
-                      // TODO: actually navigate to settings or something
-                    },
-                    icon: const Icon(Icons.edit))
-              ],
-            ),
-            const MyReweLocations(),
-            const SizedBox(height: 20),
-            // Text('Trinkgut Locations',
-            //     style: Theme.of(context).textTheme.headlineMedium),
-          ],
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: SizedBox.expand(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            shrinkWrap: true,
+            children: [
+              Text('Monster Prices',
+                  style: Theme.of(context).textTheme.headlineMedium),
+              const MyPricesWidget(),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Text('REWE Locations',
+                      style: Theme.of(context).textTheme.headlineMedium),
+                  const Spacer(),
+                  IconButton(
+                      onPressed: () {
+                        // TODO: actually navigate to settings or something
+                      },
+                      icon: const Icon(Icons.edit))
+                ],
+              ),
+              const MyReweLocations(),
+              const SizedBox(height: 20),
+              // Text('Trinkgut Locations',
+              //     style: Theme.of(context).textTheme.headlineMedium),
+            ],
+          ),
         ),
       ),
     );

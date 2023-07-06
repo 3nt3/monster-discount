@@ -1,4 +1,4 @@
-import 'package:app/home.dart';
+import 'package:app/main.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -49,44 +49,37 @@ class _MyIntroState extends State<MyIntro> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => TrinkgutStep(
-              _reweLocations,
-              _onReweLocationsChange,
+              _trinkgutLocations,
+              _onTrinkgutLocationsChange,
               () => _onContinue(IntroStep.trinkgut),
             ),
           ),
         );
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const MyHomePage(),
-          ),
-        );
+        done();
       }
     } else if (fromStep == IntroStep.rewe) {
       if (_storeValues['trinkgut'] ?? false) {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => TrinkgutStep(
-              _reweLocations,
-              _onReweLocationsChange,
+              _trinkgutLocations,
+              _onTrinkgutLocationsChange,
               () => _onContinue(IntroStep.trinkgut),
             ),
           ),
         );
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const MyHomePage(),
-          ),
-        );
+        done();
       }
     } else if (fromStep == IntroStep.trinkgut) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MyHomePage(),
-        ),
-      );
+      done();
     }
+  }
+
+  void done() {
+    Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const MyMainScreen()));
   }
 
   @override
@@ -193,14 +186,14 @@ class ReweStep extends StatelessWidget {
                   shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.all(Radius.circular(15))),
                   child: Padding(
-                    padding: EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(10),
                     child: Column(children: [
-                      CupertinoSearchTextField(),
+                      const CupertinoSearchTextField(),
                       SizedBox(
                         height: 200,
                         child: ListView(
                           shrinkWrap: true,
-                          children: [],
+                          children: const [],
                         ),
                       ),
                     ]),
@@ -259,14 +252,14 @@ class TrinkgutStep extends StatelessWidget {
                   shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.all(Radius.circular(15))),
                   child: Padding(
-                    padding: EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(10),
                     child: Column(children: [
-                      CupertinoSearchTextField(),
+                      const CupertinoSearchTextField(),
                       SizedBox(
                         height: 200,
                         child: ListView(
                           shrinkWrap: true,
-                          children: [],
+                          children: const [],
                         ),
                       ),
                     ]),
