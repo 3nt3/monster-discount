@@ -209,7 +209,7 @@ class MyReweLocations extends StatefulWidget {
 
 class _MyReweLocationsState extends State<MyReweLocations> {
   // final _locations = ['dieker strasse', 'unten'];
-  final List<Market> _selectedMarkets = [];
+  final List<CompactMarket> _selectedMarkets = [];
 
   _updateLocations() async {
     final prefs = await SharedPreferences.getInstance();

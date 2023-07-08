@@ -48,6 +48,7 @@ Future<String?> reweApiCall(String method, String path) async {
 
 Future<Market?> fetchMarketById(String marketId) async {
   final body = await reweApiCall("GET", "/mobile/markets/markets/$marketId");
+  debugPrint(body);
   return Market.fromJson(jsonDecode(body!));
 }
 

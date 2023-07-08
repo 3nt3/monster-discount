@@ -28,10 +28,9 @@ class _MySettingsPageState extends State<MySettingsPage> {
   final _reweSearchUrl =
       "https://mobile-api.rewe.de/mobile/markets/market-search";
 
-  List<Market> _searchResults = [];
+  List<CompactMarket> _searchResults = [];
   // avoid slower requests overwriting newer results
   DateTime lastSearchResult = DateTime.now();
-  DateTime lastSearchQuery = DateTime.now();
 
   @override
   void initState() {
@@ -59,14 +58,19 @@ class _MySettingsPageState extends State<MySettingsPage> {
     setState(() {});
   }
 
-  void _onReweSearchChanged(String value) async {
-    if (lastSearchQuery.difference(DateTime.now()).inMilliseconds > -700) {
-      lastSearchQuery = DateTime.now();
-      debugPrint("skipping search for $value");
-      return;
+  Future<void> _selectReweMarket(String marketId) async {
+    final market = await fetchMarketById(marketId);
+    if (market != null && !_selectedMarkets.contains(market)) {
+      _selectedMarkets.add(market);
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setStringList(
+            "selectedReweMarkets", _selectedMarkets.map((e) => e.id).toList());
+      });
+      setState(() {});
     }
-    lastSearchQuery = DateTime.now();
+  }
 
+  void _onReweSearchChanged(String value) async {
     var startedAt = DateTime.now();
     var url = Uri.parse("$_reweSearchUrl?query=$value");
     _searchLoading = true;
@@ -94,6 +98,15 @@ class _MySettingsPageState extends State<MySettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Failed querying rewe: ${e.toString()}")));
     }
+  }
+
+  void _unselectMarket(String marketId) {
+    _selectedMarkets.removeWhere((element) => element.id == marketId);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setStringList(
+          "selectedReweMarkets", _selectedMarkets.map((e) => e.id).toList());
+    });
+    setState(() {});
   }
 
   @override
@@ -145,10 +158,20 @@ class _MySettingsPageState extends State<MySettingsPage> {
                 const CupertinoActivityIndicator(),
             ],
           ),
-          const SizedBox(height: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              ListView(
+                  shrinkWrap: true,
+                  children: _selectedMarkets.map((market) {
+                    return ListTile(
+                      title: Text(market.name, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(
+                          "${market.address.street}, ${market.address.city}"),
+                      trailing: IconButton(
+                          onPressed: () => _unselectMarket(market.id), icon: const Icon(Icons.delete)),
+                    );
+                  }).toList()),
               CupertinoSearchTextField(onChanged: _onReweSearchChanged),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -166,17 +189,10 @@ class _MySettingsPageState extends State<MySettingsPage> {
                       shrinkWrap: true,
                       children: _searchResults.map((market) {
                         return ListTile(
-                          title: Text(market.name),
-                          subtitle: Text(
-                              "${market.addressLine1}, ${market.addressLine2}"),
-                          onTap: () async {
-                            _selectedMarkets.add(market);
-                            setState(() {});
-                            // var marketDetails = await _fetchMarketById(market.id);
-                            // Navigator.of(context).pushNamed('/market',
-                            //     arguments: {'market': marketDetails});
-                          },
-                        );
+                            title: Text(market.name),
+                            subtitle: Text(
+                                "${market.addressLine1}, ${market.addressLine2}"),
+                            onTap: () => _selectReweMarket(market.id));
                       }).toList()),
                 ),
               ),
