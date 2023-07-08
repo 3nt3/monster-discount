@@ -1,9 +1,13 @@
+import 'dart:convert';
+
+import 'package:app/market.dart';
 import 'package:flutter_curl/flutter_curl.dart';
 import 'package:flutter/material.dart';
 
 // necessary because the http2 library needs a lot of "boilerplate"
 Future<String?> reweApiCall(String method, String path) async {
   const reweApiBase = "https://mobile-api.rewe.de";
+  // const reweApiBase = "https://google.com";
 
   Client client = Client(
     verbose: true,
@@ -16,6 +20,7 @@ Future<String?> reweApiCall(String method, String path) async {
 
   final res = await client.send(
     Request(
+      verbose: true,
       method: "GET",
       url: reweApiBase + path,
       verifySSL: false, // something seems to be broken here lol
@@ -29,10 +34,23 @@ Future<String?> reweApiCall(String method, String path) async {
   // Read response
   if (res.statusCode == 200) {
     return res.text();
+  } else {
+    debugPrint("Error while fetching $reweApiBase$path");
+    debugPrint("Error: ${res.errorMessage}");
+    debugPrint("Status: ${res.statusCode}");
+    debugPrint(res.text());
+
+    throw Exception(res.errorMessage ?? "Error while fetching $path");
   }
 
   return null;
 }
+
+Future<Market?> fetchMarketById(String marketId) async {
+  final body = await reweApiCall("GET", "/mobile/markets/markets/$marketId");
+  return Market.fromJson(jsonDecode(body!));
+}
+
 
 // Future<List<Market>?> _searchMarkets(String query) async {
 //   return reweApiCall("GET", "/mobile/markets/market-search?query=$query");

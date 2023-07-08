@@ -5,7 +5,7 @@ import 'package:app/rewe_api.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MySettingsPage extends StatefulWidget {
   const MySettingsPage({super.key});
@@ -18,8 +18,13 @@ class _MySettingsPageState extends State<MySettingsPage> {
   final _storeValues = {};
   final _stores = ['REWE', 'ALDI Nord', 'trinkgut'];
 
+  List<Market> _selectedMarkets = [];
+
+  // whether the market info (address, name etc.) for already selected locations  is currently loading
+  bool _marketsLoading = true;
+
   bool _searchLoading = false;
-  final bool _initLoading = false;
+  // final bool _initLoading = false;
   final _reweSearchUrl =
       "https://mobile-api.rewe.de/mobile/markets/market-search";
 
@@ -28,8 +33,29 @@ class _MySettingsPageState extends State<MySettingsPage> {
   DateTime lastSearchResult = DateTime.now();
   DateTime lastSearchQuery = DateTime.now();
 
+  @override
+  void initState() {
+    super.initState();
+
+    SharedPreferences.getInstance().then((prefs) {
+      for (var store in _stores) {
+        _storeValues[store] = prefs.getBool(store) ?? false;
+      }
+      setState(() {});
+      Future.wait<Market?>((prefs.getStringList("selectedReweMarkets") ?? [])
+          .map((e) => fetchMarketById(e))).then((markets) {
+        _selectedMarkets = markets.whereType<Market>().toList();
+        _marketsLoading = false;
+        setState(() {});
+      });
+    });
+  }
+
   void _onStoreChange(bool newValue, String store) {
     _storeValues[store] = newValue;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setBool(store, newValue);
+    });
     setState(() {});
   }
 
@@ -70,21 +96,6 @@ class _MySettingsPageState extends State<MySettingsPage> {
     }
   }
 
-  Future<Market?> _fetchMarketById(String marketId) async {
-    try {
-      final resp = await http.get(Uri.parse(
-          "https://mobile-api.rewe.de/mobile/markets/markets/$marketId"));
-
-      final marketJson = jsonDecode(resp.body);
-      return Market.fromJson(marketJson);
-    } catch (e) {
-      debugPrint(e.toString());
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed querying rewe: ${e.toString()}")));
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -106,50 +117,72 @@ class _MySettingsPageState extends State<MySettingsPage> {
               .toList(),
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Text("REWE Locations",
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(width: 10),
-            if (_searchLoading) const CupertinoActivityIndicator(),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CupertinoSearchTextField(onChanged: _onReweSearchChanged),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0),
-              child: Text(
-                  _searchResults.isNotEmpty
-                      ? "${_searchResults.length} results"
-                      : "",
-                  style: Theme.of(context).textTheme.labelSmall),
-            ),
-            SizedBox(
-              height: 200,
-              child: Scrollbar(
-                interactive: true,
-                child: ListView(
-                    shrinkWrap: true,
-                    children: _searchResults.map((market) {
-                      return ListTile(
-                        title: Text(market.name),
-                        subtitle: Text(
-                            "${market.addressLine1}, ${market.addressLine2}"),
-                        onTap: () async {
-                          // var marketDetails = await _fetchMarketById(market.id);
-                          // Navigator.of(context).pushNamed('/market',
-                          //     arguments: {'market': marketDetails});
-                        },
-                      );
-                    }).toList()),
+        if (_storeValues['REWE'] ?? false) ...[
+          Row(
+            children: [
+              Text("REWE Locations",
+                  style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(width: 5),
+              if (_selectedMarkets.isNotEmpty)
+                DecoratedBox(
+                  decoration: const BoxDecoration(
+                    color: Colors.black45,
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(10),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Text(_selectedMarkets.length.toString(),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelLarge!
+                            .copyWith(color: Colors.white)),
+                  ),
+                ),
+              const SizedBox(width: 10),
+              if (_searchLoading || _marketsLoading)
+                const CupertinoActivityIndicator(),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CupertinoSearchTextField(onChanged: _onReweSearchChanged),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                    _searchResults.isNotEmpty
+                        ? "${_searchResults.length} results"
+                        : "",
+                    style: Theme.of(context).textTheme.labelSmall),
               ),
-            ),
-          ],
-        ),
-
+              SizedBox(
+                height: 200,
+                child: Scrollbar(
+                  interactive: true,
+                  child: ListView(
+                      shrinkWrap: true,
+                      children: _searchResults.map((market) {
+                        return ListTile(
+                          title: Text(market.name),
+                          subtitle: Text(
+                              "${market.addressLine1}, ${market.addressLine2}"),
+                          onTap: () async {
+                            _selectedMarkets.add(market);
+                            setState(() {});
+                            // var marketDetails = await _fetchMarketById(market.id);
+                            // Navigator.of(context).pushNamed('/market',
+                            //     arguments: {'market': marketDetails});
+                          },
+                        );
+                      }).toList()),
+                ),
+              ),
+            ],
+          )
+        ],
         // Text("Reset App", style: Theme.of(context).textTheme.headlineSmall),
         // const SizedBox(height: 10),
         // ElevatedButton(
