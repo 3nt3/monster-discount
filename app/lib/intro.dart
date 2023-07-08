@@ -1,6 +1,7 @@
 import 'package:app/main.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MyIntro extends StatefulWidget {
   const MyIntro({super.key});
@@ -78,6 +79,8 @@ class _MyIntroState extends State<MyIntro> {
   }
 
   void done() {
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setBool("is_initial_load", false));
     Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const MyMainScreen()));
   }

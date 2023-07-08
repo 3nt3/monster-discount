@@ -1,4 +1,12 @@
+import 'dart:convert';
+
+import 'package:app/api.dart';
+import 'package:app/market.dart';
+import 'package:app/offers.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({
@@ -71,16 +79,60 @@ class MyPricesWidget extends StatefulWidget {
 }
 
 class _MyPricesWidgetState extends State<MyPricesWidget> {
-  var _prices = [0.99, 1.49, 1.19];
-  var _bestPrice = 0.0;
+  final _prices = [0.99, 1.49, 1.19];
+  final _bestPrice = 0.0;
+  List<String> _marketIds = [];
+
+  // FIXME: don't hardcode this
+  final _regularRewePrice = 1.69;
+  List<Offer> _reweOffers = [];
+  final _reweUrl = "https://mobile-api.rewe.de/api/v3/all-offers";
+  bool _loading = false;
+
+  void _fetchOffers() async {
+    _loading = true;
+    _reweOffers = [];
+    setState(() {});
+    for (var marketCode in _marketIds) {
+      try {
+        var uri = Uri.parse("$_reweUrl?marketCode=$marketCode");
+        var response = await http.get(uri);
+        var offersJson = jsonDecode(response.body);
+        _reweOffers += Offers.fromJson(offersJson)
+            .categories
+            .fold<List<Offer>>(
+                [], (List<Offer> prev, elem) => prev + elem.offers)
+            .where((element) => element.title.toLowerCase().contains('monster'))
+            .toList();
+        debugPrint(_reweOffers.toString());
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("error querying rewe: ${e.toString()}")));
+        _loading = false;
+      } finally {
+        setState(() {});
+      }
+    }
+    _loading = false;
+  }
 
   @override
   void initState() {
     super.initState();
-    _prices.sort((a, b) => a.compareTo(b));
-    _bestPrice = _prices[0] ?? 0.0;
+
+    _fetchMarketIds();
+  }
+
+  void _fetchMarketIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final marketIds = prefs.getStringList("market_ids");
+    if (marketIds != null) {
+      _marketIds = marketIds;
+    }
+    debugPrint("market ids: $_marketIds");
 
     setState(() {});
+
   }
 
   @override
@@ -114,13 +166,19 @@ class MyPriceTile extends StatelessWidget {
             height: 100,
             width: 120,
             child: Padding(
-              padding: EdgeInsets.all(10),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                       padding: EdgeInsets.all(isOptimal ? 5 : 0),
+                      decoration: BoxDecoration(
+                        color: isOptimal ? Colors.red.shade300 : null,
+                        borderRadius: const BorderRadius.all(
+                          Radius.circular(8),
+                        ),
+                      ),
                       child: Text(
                         "$price €",
                         style: Theme.of(context)
@@ -129,14 +187,8 @@ class MyPriceTile extends StatelessWidget {
                             ?.copyWith(
                                 color: isOptimal ? Colors.white : null,
                                 fontWeight: isOptimal ? FontWeight.bold : null),
-                      ),
-                      decoration: BoxDecoration(
-                        color: isOptimal ? Colors.red.shade300 : null,
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(8),
-                        ),
                       )),
-                  Text("REWE Haan"),
+                  const Text("REWE Haan"),
                 ],
               ),
             ),
@@ -156,17 +208,34 @@ class MyReweLocations extends StatefulWidget {
 }
 
 class _MyReweLocationsState extends State<MyReweLocations> {
-  final _locations = ['dieker strasse', 'unten'];
+  // final _locations = ['dieker strasse', 'unten'];
+  final List<Market> _selectedMarkets = [];
+
+  _updateLocations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final success = await prefs.setStringList(
+        "market_ids", _selectedMarkets.map((e) => e.id).toList());
+    debugPrint(success.toString());
+
+    final token = await FirebaseMessaging.instance.getToken();
+
+    await http.post(Uri.parse("$API_URL/watch-markets"),
+        body: jsonEncode({
+          "markets": _selectedMarkets.map((e) => int.parse(e.id)).toList(),
+          "token": token,
+          "wants_aldi": true
+        }));
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       shrinkWrap: true,
-      children: _locations
+      children: _selectedMarkets
           .map(
             (location) => Card(
               child: ListTile(
-                title: Text(location),
+                title: Text(location.name),
               ),
             ),
           )

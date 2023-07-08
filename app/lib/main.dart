@@ -1,3 +1,4 @@
+
 import 'package:app/intro.dart';
 import 'package:app/settings.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
 import 'home.dart';
@@ -37,7 +39,18 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  final _isInitialLoad = true;
+  bool? _isInitialLoad;
+
+  @override
+  void initState() {
+    super.initState();
+
+    SharedPreferences.getInstance().then((prefs) {
+      _isInitialLoad = prefs.getBool("is_initial_load") ?? true;
+      debugPrint("is initial load: $_isInitialLoad");
+      setState(() {});
+    });
+  }
 
   // This widget is the root of your application.
   @override
@@ -46,36 +59,25 @@ class _MyAppState extends State<MyApp> {
       DeviceOrientation.portraitUp,
     ]);
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0x00b8e994), brightness: Brightness.light),
-        fontFamily: GoogleFonts.ptSerif().fontFamily,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0x00b8e994), brightness: Brightness.dark),
-        fontFamily: GoogleFonts.ptSerif().fontFamily,
-      ),
-      home: !_isInitialLoad
-          ? MyMainScreen()
-          : Scaffold(
-              body: MyIntro(),
-            ),
-    );
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.light,
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0x00b8e994), brightness: Brightness.light),
+          fontFamily: GoogleFonts.ptSerif().fontFamily,
+        ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0x00b8e994), brightness: Brightness.dark),
+          fontFamily: GoogleFonts.ptSerif().fontFamily,
+        ),
+        home: _isInitialLoad == null
+            ? const Center(child: CircularProgressIndicator())
+            : (_isInitialLoad == false ? const MyMainScreen() : const Scaffold(body: MyIntro()))
+            );
   }
 }
 
@@ -90,7 +92,6 @@ class _MyMainScreenState extends State<MyMainScreen> {
   final _pages = [const MyHomePage(), const MySettingsPage()];
 
   var _currentIndex = 0;
-  var _isInitialLoad = true;
 
   void _onBottomBarTapped(int index) {
     _currentIndex = index;
