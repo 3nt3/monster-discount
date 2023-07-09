@@ -11,7 +11,7 @@ part 'offers.g.dart';
 class Offers {
   Offers(this.categories);
 
-  List<Category> categories;
+  List<Category> categories = [];
 
   /// A necessary factory constructor for creating a new User instance
   /// from a map. Pass the map to the generated `_$UserFromJson()` constructor.
@@ -26,8 +26,8 @@ class Offers {
 
 @JsonSerializable()
 class Category {
-  Category(this.title, this.offers);
-  String title;
+  Category(this.id, this.offers);
+  String id;
   List<Offer> offers;
 
   /// A necessary factory constructor for creating a new User instance

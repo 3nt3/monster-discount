@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:app/api.dart';
 import 'package:app/market.dart';
 import 'package:app/offers.dart';
+import 'package:app/rewe_api.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -54,7 +56,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   const Spacer(),
                   IconButton(
                       onPressed: () {
-                        // TODO: actually navigate to settings or something
+
                       },
                       icon: const Icon(Icons.edit))
                 ],
@@ -89,65 +91,71 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
   final _reweUrl = "https://mobile-api.rewe.de/api/v3/all-offers";
   bool _loading = false;
 
+  @override
+  void initState() {
+    super.initState();
+
+    () async {
+      await _fetchMarketIds();
+      _fetchOffers();
+    }();
+  }
+
   void _fetchOffers() async {
     _loading = true;
     _reweOffers = [];
     setState(() {});
     for (var marketCode in _marketIds) {
       try {
-        var uri = Uri.parse("$_reweUrl?marketCode=$marketCode");
-        var response = await http.get(uri);
-        var offersJson = jsonDecode(response.body);
-        _reweOffers += Offers.fromJson(offersJson)
-            .categories
+        var response = await fetchOffersByMarketId(marketCode);
+        if (response == null) {
+          debugPrint("no response from rewe");
+          _loading = false;
+          return;
+        }
+
+        _reweOffers += response.categories
             .fold<List<Offer>>(
                 [], (List<Offer> prev, elem) => prev + elem.offers)
             .where((element) => element.title.toLowerCase().contains('monster'))
             .toList();
-        debugPrint(_reweOffers.toString());
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("error querying rewe: ${e.toString()}")));
+            SnackBar(content: Text("Error querying rewe: ${e.toString()}")));
         _loading = false;
-      } finally {
-        setState(() {});
       }
     }
     _loading = false;
+    debugPrint("rewe offers: $_reweOffers");
+    setState(() {});
   }
 
-  @override
-  void initState() {
-    super.initState();
-
-    _fetchMarketIds();
-  }
-
-  void _fetchMarketIds() async {
+  Future<void> _fetchMarketIds() async {
     final prefs = await SharedPreferences.getInstance();
-    final marketIds = prefs.getStringList("market_ids");
+    final marketIds = prefs.getStringList("selectedReweMarkets");
     if (marketIds != null) {
       _marketIds = marketIds;
     }
     debugPrint("market ids: $_marketIds");
 
     setState(() {});
-
   }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 120,
-      child: ListView(
-        shrinkWrap: false,
-        scrollDirection: Axis.horizontal,
-        children: _prices
-            .map(
-              (price) => MyPriceTile(price, _bestPrice >= price),
-            )
-            .toList(),
-      ),
+      child: _loading
+          ? const CupertinoActivityIndicator()
+          : ListView(
+              shrinkWrap: false,
+              scrollDirection: Axis.horizontal,
+              children: _prices
+                  .map(
+                    (price) => MyPriceTile(price, _bestPrice >= price),
+                  )
+                  .toList(),
+            ),
     );
   }
 }

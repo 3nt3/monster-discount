@@ -116,7 +116,7 @@ class _MySettingsPageState extends State<MySettingsPage> {
       children: [
         Text("Settings", style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 10),
-        Text("Active Stores", style: Theme.of(context).textTheme.headlineSmall),
+        Text("Stores", style: Theme.of(context).textTheme.headlineSmall),
         ListView(
           shrinkWrap: true,
           children: _stores
@@ -138,9 +138,9 @@ class _MySettingsPageState extends State<MySettingsPage> {
               const SizedBox(width: 5),
               if (_selectedMarkets.isNotEmpty)
                 DecoratedBox(
-                  decoration: const BoxDecoration(
-                    color: Colors.black45,
-                    borderRadius: BorderRadius.all(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondary,
+                    borderRadius: const BorderRadius.all(
                       Radius.circular(10),
                     ),
                   ),
@@ -150,7 +150,7 @@ class _MySettingsPageState extends State<MySettingsPage> {
                         style: Theme.of(context)
                             .textTheme
                             .labelLarge!
-                            .copyWith(color: Colors.white)),
+                            .copyWith(color: Theme.of(context).colorScheme.onSecondary)),
                   ),
                 ),
               const SizedBox(width: 10),
@@ -161,8 +161,7 @@ class _MySettingsPageState extends State<MySettingsPage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ListView(
-                  shrinkWrap: true,
+              Column(
                   children: _selectedMarkets.map((market) {
                     return ListTile(
                       title: Text(market.name, overflow: TextOverflow.ellipsis),
