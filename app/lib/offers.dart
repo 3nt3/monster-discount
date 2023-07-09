@@ -68,3 +68,32 @@ class PriceData {
 
   Map<String, dynamic> toJson() => _$PriceDataToJson(this);
 }
+
+@JsonSerializable()
+class SearchResults {
+  SearchResults(this.products, this.totalProductCount);
+
+  List<Product> products;
+  int totalProductCount;
+
+  factory SearchResults.fromJson(Map<String, dynamic> json) =>
+      _$SearchResultsFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SearchResultsToJson(this);
+}
+
+@JsonSerializable()
+class Product {
+  Product(this.id, this.listingId, this.name, this.currentPrice, this.imageUrl);
+
+  String id;
+  String listingId;
+  String name;
+  String currentPrice;
+  String imageUrl;
+
+  factory Product.fromJson(Map<String, dynamic> json) =>
+      _$ProductFromJson(json);
+
+  Map<String, dynamic> toJson() => _$ProductToJson(this);
+}

@@ -88,7 +88,6 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
   // FIXME: don't hardcode this
   final _regularRewePrice = 1.69;
   List<Offer> _reweOffers = [];
-  final _reweUrl = "https://mobile-api.rewe.de/api/v3/all-offers";
   bool _loading = false;
 
   @override
@@ -107,6 +106,7 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
     setState(() {});
     for (var marketCode in _marketIds) {
       try {
+        fetchMonsterPrice(marketCode);
         var response = await fetchOffersByMarketId(marketCode);
         if (response == null) {
           debugPrint("no response from rewe");

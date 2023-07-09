@@ -42,7 +42,11 @@ Future<String?> reweApiCall(String method, String path,
     debugPrint("Error while fetching $url");
     debugPrint("Error: ${res.errorMessage}");
     debugPrint("Status: ${res.statusCode}");
-    debugPrint(res.text());
+
+    // print all headers
+    res.headers.forEach((key, value) {
+      debugPrint("$key: $value");
+    });
 
     throw Exception(res.errorMessage ?? "Error while fetching $path");
   }
@@ -81,6 +85,35 @@ Future<Offers?> fetchOffersByMarketId(String marketId) async {
 
   return Offers.fromJson(jsonDecode(body));
 }
+
+Future<double?> fetchMonsterPrice(String marketId) async {
+  final body = await reweApiCall("GET",
+      "/api/v3/product-search?searchTerm=monster&page=1&sorting=RELEVANCE_DESC&objectsPerPage=20&marketCode=$marketId&serviceTypes=PICKUP",
+      // "/api/v3/product-search?searchTerm=monster&marketCode=$marketId&page=1&sorting=RELEVANCE_DESC&objectsPerPage=20&serviceTypes=PICKUP",
+      headers: {
+        "rd-market-id": marketId,
+        "rd-service-types": "PICKUP",
+        "x-rd-service-types": "PICKUP",
+        "rd-customer-zip": "42781", // rewe doesn't seem to care about this
+        "x-rd-customer-zip": "42781",
+        "User-Agent": "REWE-Mobile-App/3.4.56 Android/11 (Smartphone)",
+      });
+
+  final searchResults = SearchResults.fromJson(jsonDecode(body!));
+
+  // return first products price
+  if (searchResults.products.isEmpty) {
+    return null;
+  }
+  final priceString = searchResults.products[0].currentPrice;
+  final price =
+      double.tryParse(priceString.replaceAll(",", ".").replaceAll("€", ""));
+
+  debugPrint("Monster price: $price");
+
+  return price;
+}
+
 
 
 // Future<List<Market>?> _searchMarkets(String query) async {
