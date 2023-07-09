@@ -54,11 +54,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   Text('REWE Locations',
                       style: Theme.of(context).textTheme.headlineMedium),
                   const Spacer(),
-                  IconButton(
-                      onPressed: () {
-
-                      },
-                      icon: const Icon(Icons.edit))
+                  IconButton(onPressed: () {}, icon: const Icon(Icons.edit))
                 ],
               ),
               const MyReweLocations(),
@@ -81,14 +77,14 @@ class MyPricesWidget extends StatefulWidget {
 }
 
 class _MyPricesWidgetState extends State<MyPricesWidget> {
-  final _prices = [0.99, 1.49, 1.19];
-  final _bestPrice = 0.0;
+  double? _bestPrice = 0.0;
   List<String> _marketIds = [];
+  List<Market> _markets = [];
 
-  // FIXME: don't hardcode this
-  final _regularRewePrice = 1.69;
+  Map<String, double?> _monsterPrices = {};
   List<Offer> _reweOffers = [];
-  bool _loading = false;
+  bool _offersLoading = true;
+  bool _marketsLoading = true;
 
   @override
   void initState() {
@@ -97,20 +93,22 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
     () async {
       await _fetchMarketIds();
       _fetchOffers();
+      _fetchMarkets();
     }();
   }
 
   void _fetchOffers() async {
-    _loading = true;
+    _offersLoading = true;
     _reweOffers = [];
     setState(() {});
     for (var marketCode in _marketIds) {
       try {
-        fetchMonsterPrice(marketCode);
+        _monsterPrices[marketCode] = await fetchMonsterPrice(marketCode);
+
         var response = await fetchOffersByMarketId(marketCode);
         if (response == null) {
           debugPrint("no response from rewe");
-          _loading = false;
+          _offersLoading = false;
           return;
         }
 
@@ -122,11 +120,32 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("Error querying rewe: ${e.toString()}")));
-        _loading = false;
+        _offersLoading = false;
       }
     }
-    _loading = false;
+    _offersLoading = false;
     debugPrint("rewe offers: $_reweOffers");
+    setState(() {});
+  }
+
+  void _fetchMarkets() async {
+    _markets = [];
+    _marketsLoading = true;
+    setState(() {});
+    for (var marketCode in _marketIds) {
+      try {
+        var response = await fetchMarketById(marketCode);
+        if (response == null) {
+          debugPrint("no response from rewe");
+          return;
+        }
+        _markets.add(response);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("Error querying rewe: ${e.toString()}")));
+      }
+    }
+    _marketsLoading = false;
     setState(() {});
   }
 
@@ -145,14 +164,24 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
   Widget build(BuildContext context) {
     return SizedBox(
       height: 120,
-      child: _loading
+      child: (_offersLoading || _marketsLoading)
           ? const CupertinoActivityIndicator()
           : ListView(
               shrinkWrap: false,
               scrollDirection: Axis.horizontal,
-              children: _prices
+              children: _monsterPrices.entries
                   .map(
-                    (price) => MyPriceTile(price, _bestPrice >= price),
+                    (entry) => MyPriceTile(
+                        price: entry.value,
+                        market: _markets
+                            .firstWhere((element) => element.id == entry.key),
+                        isOptimal: entry.value ==
+                            _monsterPrices.values.reduce((value, element) =>
+                                (value != null && element != null)
+                                    ? value < element
+                                        ? value
+                                        : element
+                                    : value)),
                   )
                   .toList(),
             ),
@@ -161,9 +190,14 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
 }
 
 class MyPriceTile extends StatelessWidget {
-  final double price;
+  final double? price;
   final bool isOptimal;
-  const MyPriceTile(this.price, this.isOptimal, {super.key});
+  final Market market;
+  const MyPriceTile(
+      {super.key,
+      required this.price,
+      required this.market,
+      required this.isOptimal});
 
   @override
   Widget build(BuildContext context) {
@@ -188,7 +222,7 @@ class MyPriceTile extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        "$price €",
+                        price != null ? "${price!.toStringAsFixed(2)} €" : "N/A",
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall
@@ -196,7 +230,9 @@ class MyPriceTile extends StatelessWidget {
                                 color: isOptimal ? Colors.white : null,
                                 fontWeight: isOptimal ? FontWeight.bold : null),
                       )),
-                  const Text("REWE Haan"),
+                  Text("${market.address.street}, ${market.address.city}",
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall),
                 ],
               ),
             ),
