@@ -47,6 +47,7 @@ class _MyAppState extends State<MyApp> {
 
     SharedPreferences.getInstance().then((prefs) {
       _isInitialLoad = prefs.getBool("is_initial_load") ?? true;
+      _isInitialLoad = true;
       debugPrint("is initial load: $_isInitialLoad");
       setState(() {});
     });

@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:app/main.dart';
+import 'package:app/market.dart';
+import 'package:app/rewe_api.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -159,13 +163,88 @@ class SelectionStep extends StatelessWidget {
   }
 }
 
-class ReweStep extends StatelessWidget {
+class ReweStep extends StatefulWidget {
   final List<String> locations;
   final Function(List<String>) onLocationsChange;
   final Function() onContinue;
 
   const ReweStep(this.locations, this.onLocationsChange, this.onContinue,
       {super.key});
+
+  @override
+  State<ReweStep> createState() => _ReweStepState();
+}
+
+class _ReweStepState extends State<ReweStep> {
+  List<Market> _selectedMarkets = [];
+
+  // whether the market info (address, name etc.) for already selected locations  is currently loading
+  bool _marketsLoading = true;
+
+  bool _searchLoading = false;
+
+  // final bool _initLoading = false;
+  final _reweSearchUrl =
+      "https://mobile-api.rewe.de/mobile/markets/market-search";
+
+  List<CompactMarket> _searchResults = [];
+
+  // avoid slower requests overwriting newer results
+  DateTime lastSearchResult = DateTime.now();
+
+  Future<void> _toggleMarketSelected(String marketId) async {
+    final market = await fetchMarketById(marketId);
+    if (market == null) return;
+    if (_selectedMarkets.map((e) => e.id).contains(marketId)) {
+      _selectedMarkets.removeWhere((element) => element.id == marketId);
+    } else {
+      _selectedMarkets.add(market);
+    }
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setStringList(
+          "selectedReweMarkets", _selectedMarkets.map((e) => e.id).toList());
+    });
+    setState(() {});
+  }
+
+  void _onReweSearchChanged(String value) async {
+    var startedAt = DateTime.now();
+    var url = Uri.parse("$_reweSearchUrl?query=$value");
+    _searchLoading = true;
+    setState(() {});
+
+    debugPrint("searching for $value");
+
+    try {
+      // make http2 request to rewe api
+      final bodyString =
+          await reweApiCall("GET", "/api/v3/market/search?search=$value");
+
+      _searchLoading = false;
+
+      if (startedAt.compareTo(lastSearchResult) > 0) {
+        Map<String, dynamic> body = jsonDecode(bodyString!);
+        _searchResults = Markets.fromJson(body).markets;
+        lastSearchResult = startedAt;
+        debugPrint(value);
+        setState(() {});
+      }
+    } catch (e) {
+      _searchLoading = false;
+      debugPrint(e.toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed querying rewe: ${e.toString()}")));
+    }
+  }
+
+  void _unselectMarket(String marketId) {
+    _selectedMarkets.removeWhere((element) => element.id == marketId);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setStringList(
+          "selectedReweMarkets", _selectedMarkets.map((e) => e.id).toList());
+    });
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,23 +269,55 @@ class ReweStep extends StatelessWidget {
                       borderRadius: BorderRadius.all(Radius.circular(15))),
                   child: Padding(
                     padding: const EdgeInsets.all(10),
-                    child: Column(children: [
-                      const CupertinoSearchTextField(),
-                      SizedBox(
-                        height: 200,
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: const [],
-                        ),
-                      ),
-                    ]),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CupertinoSearchTextField(
+                            onChanged: _onReweSearchChanged,
+                            placeholder: "Search for a REWE location",
+                          ),
+                          const SizedBox(height: 5),
+                          Wrap(
+                              children: _selectedMarkets
+                                  .map((market) => Chip(
+                                        visualDensity: VisualDensity.compact,
+                                        elevation: 2,
+                                        label: Text(market.name,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelSmall),
+                                        onDeleted: () =>
+                                            _unselectMarket(market.id),
+                                      ))
+                                  .toList()),
+                          SizedBox(
+                            height: 200,
+                            child: _searchLoading
+                                ? const Center(child: CupertinoActivityIndicator())
+                                : ListView(
+                                    shrinkWrap: true,
+                                    children: _searchResults.map((market) {
+                                      return ListTile(
+                                          title: Text(market.name,
+                                              overflow: TextOverflow.ellipsis),
+                                          subtitle: Text(
+                                              "${market.addressLine1}, ${market.addressLine2}",
+                                              overflow: TextOverflow.ellipsis),
+                                          selected: _selectedMarkets
+                                              .map((e) => e.id)
+                                              .contains(market.id),
+                                          onTap: () =>
+                                              _toggleMarketSelected(market.id));
+                                    }).toList()),
+                          ),
+                        ]),
                   ),
                 ),
                 const SizedBox(
                   height: 10,
                 ),
                 ElevatedButton(
-                  onPressed: onContinue,
+                  onPressed: widget.onContinue,
                   style: const ButtonStyle(
                     padding: MaterialStatePropertyAll(
                       EdgeInsets.symmetric(horizontal: 100, vertical: 0),
