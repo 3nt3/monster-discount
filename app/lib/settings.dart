@@ -4,6 +4,7 @@ import 'package:app/market.dart';
 import 'package:app/rewe_api.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:app/main.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -60,7 +61,7 @@ class _MySettingsPageState extends State<MySettingsPage> {
 
   Future<void> _selectReweMarket(String marketId) async {
     final market = await fetchMarketById(marketId);
-    if (market != null && !_selectedMarkets.contains(market)) {
+    if (market != null && !_selectedMarkets.map((e) => e.id).contains(marketId)) {
       _selectedMarkets.add(market);
       SharedPreferences.getInstance().then((prefs) {
         prefs.setStringList(
@@ -111,117 +112,133 @@ class _MySettingsPageState extends State<MySettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Text("Settings", style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 10),
-        Text("Stores", style: Theme.of(context).textTheme.headlineSmall),
-        ListView(
-          shrinkWrap: true,
-          children: _stores
-              .map(
-                (store) => SwitchListTile(
-                  title: Text(store),
-                  value: _storeValues[store] ?? false,
-                  onChanged: (newValue) => _onStoreChange(newValue, store),
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 10),
-        if (_storeValues['REWE'] ?? false) ...[
-          Row(
-            children: [
-              Text("REWE Locations",
-                  style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(width: 5),
-              if (_selectedMarkets.isNotEmpty)
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondary,
-                    borderRadius: const BorderRadius.all(
-                      Radius.circular(10),
+    return Scrollbar(
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text("Settings", style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 10),
+          Text("Stores", style: Theme.of(context).textTheme.headlineSmall),
+          ListView(
+            shrinkWrap: true,
+            children: _stores
+                .map(
+                  (store) => SwitchListTile(
+                    title: Text(store),
+                    value: _storeValues[store] ?? false,
+                    onChanged: (newValue) => _onStoreChange(newValue, store),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 10),
+          if (_storeValues['REWE'] ?? false) ...[
+            Row(
+              children: [
+                Text("REWE Locations",
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(width: 5),
+                if (_selectedMarkets.isNotEmpty)
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondary,
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(10),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text(_selectedMarkets.length.toString(),
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge!
+                              .copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondary)),
                     ),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Text(_selectedMarkets.length.toString(),
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelLarge!
-                            .copyWith(color: Theme.of(context).colorScheme.onSecondary)),
+                const SizedBox(width: 10),
+                if (_searchLoading || _marketsLoading)
+                  const CupertinoActivityIndicator(),
+              ],
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                    children: _selectedMarkets.map((market) {
+                  return ListTile(
+                    title: Text(market.name, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(
+                        "${market.address.street}, ${market.address.city}"),
+                    trailing: IconButton(
+                        onPressed: () => _unselectMarket(market.id),
+                        icon: const Icon(Icons.delete)),
+                  );
+                }).toList()),
+                CupertinoSearchTextField(onChanged: _onReweSearchChanged),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Text(
+                      _searchResults.isNotEmpty
+                          ? "${_searchResults.length} results"
+                          : "",
+                      style: Theme.of(context).textTheme.labelSmall),
+                ),
+                if (_searchResults.isNotEmpty)
+                  SizedBox(
+                    height: 200,
+                    child: Scrollbar(
+                      interactive: true,
+                      child: ListView(
+                          shrinkWrap: true,
+                          children: _searchResults.map((market) {
+                            return ListTile(
+                                title: Text(market.name),
+                                subtitle: Text(
+                                    "${market.addressLine1}, ${market.addressLine2}"),
+                                onTap: () => _selectReweMarket(market.id));
+                          }).toList()),
+                    ),
                   ),
+              ],
+            )
+          ],
+          Text("Reset App", style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            child: const Text("Reset App"),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => CupertinoAlertDialog(
+                  title: const Text("Sure?"),
+                  actions: [
+                    CupertinoDialogAction(
+                      child: const Text("Abort"),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    CupertinoDialogAction(
+                      isDestructiveAction: true,
+                      child: const Text("Reset"),
+                      onPressed: () {
+                        SharedPreferences.getInstance().then((prefs) {
+                          prefs.clear();
+                          Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => const MyApp()));
+                        });
+                      },
+                    )
+                  ],
                 ),
-              const SizedBox(width: 10),
-              if (_searchLoading || _marketsLoading)
-                const CupertinoActivityIndicator(),
-            ],
+              );
+            },
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                  children: _selectedMarkets.map((market) {
-                    return ListTile(
-                      title: Text(market.name, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(
-                          "${market.address.street}, ${market.address.city}"),
-                      trailing: IconButton(
-                          onPressed: () => _unselectMarket(market.id), icon: const Icon(Icons.delete)),
-                    );
-                  }).toList()),
-              CupertinoSearchTextField(onChanged: _onReweSearchChanged),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                    _searchResults.isNotEmpty
-                        ? "${_searchResults.length} results"
-                        : "",
-                    style: Theme.of(context).textTheme.labelSmall),
-              ),
-              SizedBox(
-                height: 200,
-                child: Scrollbar(
-                  interactive: true,
-                  child: ListView(
-                      shrinkWrap: true,
-                      children: _searchResults.map((market) {
-                        return ListTile(
-                            title: Text(market.name),
-                            subtitle: Text(
-                                "${market.addressLine1}, ${market.addressLine2}"),
-                            onTap: () => _selectReweMarket(market.id));
-                      }).toList()),
-                ),
-              ),
-            ],
-          )
         ],
-        // Text("Reset App", style: Theme.of(context).textTheme.headlineSmall),
-        // const SizedBox(height: 10),
-        // ElevatedButton(
-        //   child: const Text("Reset App"),
-        //   onPressed: () {
-        //     showDialog(
-        //       context: context,
-        //       builder: (context) => CupertinoAlertDialog(
-        //         title: const Text("Sure?"),
-        //         actions: [
-        //           CupertinoDialogAction(
-        //             child: const Text("Abort"),
-        //             onPressed: () => Navigator.of(context).pop(),
-        //           ),
-        //           const CupertinoDialogAction(
-        //             isDestructiveAction: true,
-        //             child: Text("Reset"),
-        //           )
-        //         ],
-        //       ),
-        //     );
-        //   },
-        // ),
-      ],
+      ),
     );
   }
 }

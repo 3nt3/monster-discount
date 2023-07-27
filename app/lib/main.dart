@@ -1,4 +1,3 @@
-
 import 'package:app/intro.dart';
 import 'package:app/settings.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -47,7 +46,6 @@ class _MyAppState extends State<MyApp> {
 
     SharedPreferences.getInstance().then((prefs) {
       _isInitialLoad = prefs.getBool("is_initial_load") ?? true;
-      _isInitialLoad = true;
       debugPrint("is initial load: $_isInitialLoad");
       setState(() {});
     });
@@ -75,10 +73,19 @@ class _MyAppState extends State<MyApp> {
               seedColor: const Color(0x00b8e994), brightness: Brightness.dark),
           fontFamily: GoogleFonts.ptSerif().fontFamily,
         ),
-        home: _isInitialLoad == null
-            ? const Center(child: CircularProgressIndicator())
-            : (_isInitialLoad == false ? const MyMainScreen() : const Scaffold(body: MyIntro()))
-            );
+        home: GestureDetector(
+          onTap: () {
+            FocusScopeNode currentFocus = FocusScope.of(context);
+            if (!currentFocus.hasPrimaryFocus) {
+              currentFocus.unfocus();
+            }
+          },
+          child: _isInitialLoad == null
+              ? const Center(child: CircularProgressIndicator())
+              : (_isInitialLoad == false
+                  ? const MyMainScreen()
+                  : const Scaffold(body: MyIntro())),
+        ));
   }
 }
 

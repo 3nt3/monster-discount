@@ -29,59 +29,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
-      child: SafeArea(
-        child: SizedBox.expand(
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            shrinkWrap: true,
-            children: [
-              Text('Monster Prices',
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const MyPricesWidget(),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Text('REWE Locations',
-                      style: Theme.of(context).textTheme.headlineMedium),
-                  const Spacer(),
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.edit))
-                ],
-              ),
-              const MyReweLocations(),
-              const SizedBox(height: 20),
-              // Text('Trinkgut Locations',
-              //     style: Theme.of(context).textTheme.headlineMedium),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class MyPricesWidget extends StatefulWidget {
-  const MyPricesWidget({super.key});
-
-  @override
-  State<MyPricesWidget> createState() => _MyPricesWidgetState();
-}
-
-class _MyPricesWidgetState extends State<MyPricesWidget> {
-  double? _bestPrice = 0.0;
   List<String> _marketIds = [];
   List<Market> _markets = [];
 
-  Map<String, double?> _monsterPrices = {};
+  final Map<String, double?> _monsterPrices = {};
   List<Offer> _reweOffers = [];
   bool _offersLoading = true;
   bool _marketsLoading = true;
@@ -162,21 +113,90 @@ class _MyPricesWidgetState extends State<MyPricesWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // This method is rerun every time setState is called, for instance as done
+    // by the _incrementCounter method above.
+    //
+    // The Flutter framework has been optimized to make rerunning build methods
+    // fast, so that you can just rebuild anything that needs updating rather
+    // than having to individually change instances of widgets.
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: SizedBox.expand(
+          child: RefreshIndicator(
+            onRefresh: () async {},
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              shrinkWrap: true,
+              children: [
+                Text('Monster Prices',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                MyPricesWidget(
+                    monsterPrices: _monsterPrices,
+                    markets: _markets,
+                    offersLoading: _offersLoading,
+                    marketsLoading: _marketsLoading,
+                    marketIds: _marketIds,
+                    reweOffers: _reweOffers),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Text('REWE Locations',
+                        style: Theme.of(context).textTheme.headlineMedium),
+                    const Spacer(),
+                    IconButton(onPressed: () {}, icon: const Icon(Icons.edit))
+                  ],
+                ),
+                const MyReweLocations(),
+                const SizedBox(height: 20),
+                // Text('Trinkgut Locations',
+                //     style: Theme.of(context).textTheme.headlineMedium),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MyPricesWidget extends StatefulWidget {
+  final List<String> marketIds;
+  final List<Market> markets;
+
+  final Map<String, double?> monsterPrices;
+  final List<Offer> reweOffers;
+  final bool offersLoading;
+  final bool marketsLoading;
+
+
+  const MyPricesWidget({super.key, required this.monsterPrices, required this.markets, required this.offersLoading, required this.marketsLoading, required this.marketIds, required this.reweOffers});
+
+  @override
+  State<MyPricesWidget> createState() => _MyPricesWidgetState();
+}
+
+class _MyPricesWidgetState extends State<MyPricesWidget> {
+  final double _bestPrice = 0.0;
+
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       height: 120,
-      child: (_offersLoading || _marketsLoading)
+      child: (widget.offersLoading || widget.marketsLoading)
           ? const CupertinoActivityIndicator()
           : ListView(
               shrinkWrap: false,
               scrollDirection: Axis.horizontal,
-              children: _monsterPrices.entries
+              children: widget.monsterPrices.entries
                   .map(
                     (entry) => MyPriceTile(
                         price: entry.value,
-                        market: _markets
+                        market: widget.markets
                             .firstWhere((element) => element.id == entry.key),
                         isOptimal: entry.value ==
-                            _monsterPrices.values.reduce((value, element) =>
+                            widget.monsterPrices.values.reduce((value, element) =>
                                 (value != null && element != null)
                                     ? value < element
                                         ? value
@@ -222,7 +242,9 @@ class MyPriceTile extends StatelessWidget {
                         ),
                       ),
                       child: Text(
-                        price != null ? "${price!.toStringAsFixed(2)} €" : "N/A",
+                        price != null
+                            ? "${price!.toStringAsFixed(2)} €"
+                            : "N/A",
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall
@@ -253,12 +275,48 @@ class MyReweLocations extends StatefulWidget {
 
 class _MyReweLocationsState extends State<MyReweLocations> {
   // final _locations = ['dieker strasse', 'unten'];
-  final List<CompactMarket> _selectedMarkets = [];
+  List<Market> _selectedMarkets = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+
+    () async {
+      await _fetchSelectedMarkets();
+    }();
+  }
+
+  Future<void> _fetchSelectedMarkets() async {
+    setState(() {
+      loading = true;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final marketIds = prefs.getStringList("selectedReweMarkets");
+    debugPrint("market ids from MyReweLocations: $marketIds");
+    if (marketIds == null) return;
+
+    // asynchronously fetch all dem markets
+
+    debugPrint("some market: ${await fetchMarketById(marketIds[0])}");
+
+    _selectedMarkets =
+        (await Future.wait(marketIds.map((e) => fetchMarketById(e))))
+            .where((m) => m != null)
+            .map((e) => e!)
+            .toList();
+
+    setState(() {
+      loading = false;
+    });
+
+    debugPrint("selected markets: $_selectedMarkets");
+  }
 
   _updateLocations() async {
     final prefs = await SharedPreferences.getInstance();
     final success = await prefs.setStringList(
-        "market_ids", _selectedMarkets.map((e) => e.id).toList());
+        "selectedReweMarkets", _selectedMarkets.map((e) => e.id).toList());
     debugPrint(success.toString());
 
     final token = await FirebaseMessaging.instance.getToken();
@@ -273,17 +331,20 @@ class _MyReweLocationsState extends State<MyReweLocations> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      shrinkWrap: true,
-      children: _selectedMarkets
-          .map(
-            (location) => Card(
-              child: ListTile(
-                title: Text(location.name),
-              ),
-            ),
-          )
-          .toList(),
-    );
+    return loading
+        ? const SizedBox(height: 100, child: CupertinoActivityIndicator())
+        : Column(
+            children: _selectedMarkets
+                .map(
+                  (location) => Card(
+                    child: ListTile(
+                      title: Row(
+                        children: [Text(location.name), const Spacer(), const Text("")],
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          );
   }
 }
