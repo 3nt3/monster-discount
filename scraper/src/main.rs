@@ -1,3 +1,5 @@
+#![feature(async_closure)]
+
 use firebae_cm::{Client, Message, MessageBody, Notification, Receiver};
 use gcp_auth::{AuthenticationManager, CustomServiceAccount};
 use sqlx::{Pool, Postgres};
@@ -8,7 +10,8 @@ use std::path::PathBuf;
 use futures::StreamExt;
 use sqlx::postgres::PgPoolOptions;
 
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 // mod aldi;
 mod db;
@@ -38,7 +41,8 @@ async fn main() {
     let oauth_token = authentication_manager.get_token(scopes).await.unwrap();
 
     // rewe
-    let _ = rewe::query_all_discounts(&pool).await;
+    let rewe_discounts = rewe::query_discounts_and_filter(&pool, "sekt").await;
+
 }
 
 // async fn trinkgut(pool: &Pool<Postgres>) -> anyhow::Result<()> {

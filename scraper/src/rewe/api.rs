@@ -17,7 +17,6 @@ pub async fn get_market_info(market_id: i32) -> Result<models::MarketInfo, reqwe
             "REWE-Mobile-App/3.4.56 Android/11 (Smartphone)",
         )
         .header("Accept", "application/json");
-    dbg!(&http_builder);
     let resp = http_builder.send().await?;
 
     Ok(resp.json::<models::MarketInfo>().await?)

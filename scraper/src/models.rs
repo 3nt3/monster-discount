@@ -16,5 +16,10 @@ pub struct Scrape {
 pub enum Store {
     Rewe,
     AldiNord,
-    TrinkGut
+    TrinkGut,
+}
+
+pub struct TokenAndMarketID {
+    pub token: String,
+    pub market_id: i32,
 }

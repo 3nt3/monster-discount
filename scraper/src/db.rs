@@ -38,6 +38,7 @@ pub async fn discounted_last_time(
     .map(|x| x.discounted)
 }
 
+
 pub async fn delete_token(
     token: &str,
     pool: &Pool<Postgres>,
