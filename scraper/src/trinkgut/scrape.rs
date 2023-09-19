@@ -25,29 +25,26 @@ pub async fn get_listings_by_market_id(market_id: String) -> anyhow::Result<Vec<
         let maybe_image = element.select(&image_selector).next();
         let maybe_description = element.select(&description_selector).next();
 
-        match (maybe_title, maybe_price, maybe_image, maybe_description) {
-            (Some(title), Some(price), Some(image), Some(description)) => {
-                let title_text = title.text().collect::<Vec<_>>().join("").trim().to_string();
-                let price_text = price.text().collect::<Vec<_>>().join("").trim().to_string();
+        if let (Some(title), Some(price), Some(image), Some(description)) = (maybe_title, maybe_price, maybe_image, maybe_description) {
+            let title_text = title.text().collect::<Vec<_>>().join("").trim().to_string();
+            let price_text = price.text().collect::<Vec<_>>().join("").trim().to_string();
 
-                let maybe_image_url = image.value().attr("srcset");
-                if let None = maybe_image_url {
-                    continue;
-                }
-                let image_url = maybe_image_url.unwrap();
-
-                let description_text = description.text().collect::<Vec<_>>().join("").trim().to_string();
-
-                // println!("{} ({}): {}", title_text, image_url, price_text);
-                listings.push(Listing {
-                    title: title_text,
-                    price: price_text,
-                    market_id: market_id.clone(),
-                    description: description_text,
-                    image_url: image_url.to_string(),
-                });
+            let maybe_image_url = image.value().attr("srcset");
+            if maybe_image_url.is_none() {
+                continue;
             }
-            _ => {}
+            let image_url = maybe_image_url.unwrap();
+
+            let description_text = description.text().collect::<Vec<_>>().join("").trim().to_string();
+
+            // println!("{} ({}): {}", title_text, image_url, price_text);
+            listings.push(Listing {
+                title: title_text,
+                price: price_text,
+                market_id: market_id.clone(),
+                description: description_text,
+                image_url: image_url.to_string(),
+            });
         }
     }
 
@@ -88,3 +85,33 @@ pub async fn is_product_discounted<S: Into<String>>(market_id: S, product_name: 
 
     Ok(false)
 }
+
+// tests
+#[cfg(not(tests))]
+pub mod tests {
+    #[tokio::test]
+    async fn test_get_market_id() {
+        let market_id = crate::trinkgut::scrape::get_market_id("elke-luck-ii".to_string()).await;
+        assert!(market_id.is_ok());
+
+        // NOTE: this may very likely change sometime
+        assert!(market_id.unwrap() == "390");
+    }
+
+    #[tokio::test]
+    async fn test_get_listings_by_market_id() {
+        // 390 is the market id of "Elke Luck II"
+        let listings = crate::trinkgut::scrape::get_listings_by_market_id("390".to_string()).await;
+        assert!(listings.is_ok());
+
+        let listings = listings.unwrap();
+        assert!(!listings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_is_product_discounted() {
+        let is_discounted = crate::trinkgut::scrape::is_product_discounted("390", "Krombacher").await;
+        assert!(is_discounted.is_ok());
+    }
+}
+

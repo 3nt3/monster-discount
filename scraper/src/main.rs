@@ -17,7 +17,7 @@ extern crate log;
 mod db;
 mod models;
 mod rewe;
-// mod trinkgut;
+mod trinkgut;
 
 #[tokio::main]
 async fn main() {
